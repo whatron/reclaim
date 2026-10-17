@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Reclaim</string>
+    <key>CFBundleDisplayName</key>
+    <string>Reclaim</string>
+    <key>CFBundleIdentifier</key>
+    <string>local.reclaim.app</string>
+    <key>CFBundleExecutable</key>
+    <string>Reclaim</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Reclaim measures how much space your Documents folder uses.</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>Reclaim measures how much space your Desktop folder uses.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Reclaim measures your Downloads folder and finds large files you might not need.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Reclaim asks Finder to empty the Trash when it can't do it directly.</string>
+</dict>
+</plist>
