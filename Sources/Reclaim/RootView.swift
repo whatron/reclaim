@@ -30,6 +30,14 @@ struct RootView: View {
         .sheet(item: $model.pending) { action in
             ConfirmSheet(action: action)
         }
+        .task {
+            // Lets the screenshot step open a given page: RECLAIM_SECTION=map
+            if let raw = ProcessInfo.processInfo.environment["RECLAIM_SECTION"],
+               let section = AppSection(rawValue: raw) {
+                model.section = section
+                NSApp.activate()
+            }
+        }
         .overlay(alignment: .top) { BatchBanner() }
         .overlay(alignment: .bottom) { ToastOverlay() }
         .overlay { CelebrationOverlay() }

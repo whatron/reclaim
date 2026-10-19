@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   checks: write
 
 concurrency:
@@ -67,3 +67,20 @@ jobs:
           name: Reclaim-app
           path: build/Reclaim.zip
           retention-days: 14
+
+      # Commit messages containing [screenshots] also photograph every page and push the
+      # pictures to the `screenshots` branch.
+      - name: Take screenshots
+        if: contains(github.event.head_commit.message, '[screenshots]')
+        run: ./Scripts/screenshot_tour.sh shots
+
+      - name: Publish screenshots
+        if: contains(github.event.head_commit.message, '[screenshots]')
+        run: |
+          cd shots
+          git init -q -b screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Screenshots of ${GITHUB_SHA::7}"
+          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" screenshots
