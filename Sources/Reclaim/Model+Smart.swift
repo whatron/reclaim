@@ -244,13 +244,13 @@ extension AppModel {
         let body = recommendedBytes > 500_000_000
             ? "Only \(Format.short(d.free)) left. Reclaim can safely free \(Format.short(recommendedBytes))."
             : "Only \(Format.short(d.free)) left. Open Reclaim to see what's using space."
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return }
             let content = UNMutableNotificationContent()
             content.title = "Your Mac is running low on space"
             content.body = body
-            center.add(UNNotificationRequest(identifier: "low-space", content: content, trigger: nil))
+            UNUserNotificationCenter.current()
+                .add(UNNotificationRequest(identifier: "low-space", content: content, trigger: nil))
         }
     }
 }
