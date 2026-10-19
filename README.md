@@ -4,7 +4,15 @@ A native macOS app that shows what's filling your disk, explains it in plain lan
 
 Your disk is drawn as a glass vessel. Deep blue water is your data, the glowing mint shallows are what Reclaim can clear, coral is the Trash, and the air above is free space. Every cleanup drains the mint.
 
-<!-- screenshots -->
+<p align="center">
+  <img src="docs/screenshots/overview-dark.png" width="49%" alt="Overview: the tide gauge, free space and ranked recommendations">
+  <img src="docs/screenshots/space-map-dark.png" width="49%" alt="Space Map: home folder as rings, with the inspector explaining Library">
+</p>
+<p align="center">
+  <img src="docs/screenshots/smart-clean-light.png" width="49%" alt="Smart Clean: a live bar of everything ticked">
+  <img src="docs/screenshots/duplicates-dark.png" width="49%" alt="Duplicates: identical files with the copy to keep marked">
+</p>
+<p align="center"><sub>Screenshots taken automatically on GitHub's macOS build machine, so the folders are its, not yours.</sub></p>
 
 ## What it does
 
