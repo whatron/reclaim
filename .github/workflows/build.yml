@@ -4,6 +4,10 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: write
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -23,7 +27,37 @@ jobs:
           swift --version
 
       - name: Build the app
-        run: ./build.sh --no-open
+        run: |
+          set -o pipefail
+          ./build.sh --no-open 2>&1 | tee build.log
+
+      - name: Publish compiler messages
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          touch build.log
+          # Errors first (with the notes that follow them), then warnings, without duplicates.
+          grep -E ": (error|warning|note): " build.log | sed "s|$GITHUB_WORKSPACE/||" | awk '!seen[$0]++' > messages.txt || true
+          errors=$(grep -c ": error: " messages.txt || true)
+          warnings=$(grep -c ": warning: " messages.txt || true)
+          { grep ": error: " messages.txt || true; grep -v ": error: " messages.txt || true; } | head -c 60000 > report.txt
+          {
+            echo "Errors: $errors, warnings: $warnings"
+            echo
+            echo '```'
+            xcodebuild -version
+            swift --version 2>&1 | head -2
+            echo '```'
+          } > summary.md
+          gh api "repos/${{ github.repository }}/check-runs" \
+            -f name="Compiler messages" \
+            -f head_sha="${{ github.sha }}" \
+            -f status=completed \
+            -f conclusion=neutral \
+            -f "output[title]=$errors errors, $warnings warnings" \
+            -F "output[summary]=@summary.md" \
+            -F "output[text]=@report.txt" > /dev/null || echo "Couldn't publish the compiler messages."
 
       - name: Zip the app
         run: ditto -c -k --keepParent build/Reclaim.app build/Reclaim.zip
