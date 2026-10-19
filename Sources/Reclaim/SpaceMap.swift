@@ -128,6 +128,27 @@ struct SunburstCanvas: View, Animatable {
                     context.stroke(path, with: .color(.primary), lineWidth: 2)
                 }
             }
+
+            // Names on the inner-ring arcs that have room for them, once the sweep has finished.
+            guard progress > 0.98 else { return }
+            var labels = context
+            labels.addFilter(.shadow(color: .black.opacity(0.5), radius: 2))
+            let band = Sunburst.band(1)
+            let r = radius * (band.inner + band.outer) / 2
+            let thickness = radius * (band.outer - band.inner)
+            for seg in segments where seg.level == 1 && !seg.node.isGroup && seg.end - seg.start > 0.3 {
+                let mid = (seg.start + seg.end) / 2
+                let along = abs(cos(mid))
+                let across = abs(sin(mid))
+                let room = CGFloat(along) * r * CGFloat(seg.end - seg.start) * 0.7 + CGFloat(across) * thickness * 1.3
+                let text = labels.resolve(Text(seg.node.name)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white))
+                let size = text.measure(in: CGSize(width: 500, height: 60))
+                guard size.width < room, size.height < thickness * 0.7 else { continue }
+                let point = CGPoint(x: center.x + r * CGFloat(sin(mid)), y: center.y - r * CGFloat(cos(mid)))
+                labels.draw(text, at: point, anchor: .center)
+            }
         }
     }
 
