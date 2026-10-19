@@ -167,8 +167,12 @@ enum Spotlight {
 enum Format {
     static func bytes(_ n: Int64?) -> String {
         guard let n else { return "—" }
+        if n == 0 { return "0 KB" }
         return ByteCountFormatter.string(fromByteCount: n, countStyle: .file)
     }
+
+    /// Dates before 2000 come from tools that zero out timestamps, so they mean "unknown".
+    static let trustworthyDate = Date(timeIntervalSince1970: 946_684_800)
 
     /// The big hero number: ("212", "GB free").
     static func bigFree(_ n: Int64) -> (number: String, unit: String) {

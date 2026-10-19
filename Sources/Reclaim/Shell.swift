@@ -110,11 +110,11 @@ enum Shell {
     }
 
     /// Sizes of a folder's children and grandchildren (two rings of the space map).
+    /// macOS `du` can't combine -a with -d, so folders come from `du -d` and files from the file system.
     static func scanFolder(_ path: String, depth: Int = 2) -> FolderScan {
         let base = path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
         let prefix = base + "/"
-        let result = run(["/usr/bin/du", "-k", "-a", "-d", String(depth), "-x", base], timeout: 1800)
-        let fm = FileManager.default
+        let result = run(["/usr/bin/du", "-k", "-d", String(depth), "-x", base], timeout: 1800)
         var total: Int64 = 0
         var level1: [String: DiskNode] = [:]
         var level2: [String: [DiskNode]] = [:]
@@ -130,11 +130,7 @@ enum Shell {
             }
             guard p.hasPrefix(prefix) else { continue }
             let parts = p.dropFirst(prefix.count).split(separator: "/")
-            var isDir: ObjCBool = false
-            let exists = fm.fileExists(atPath: p, isDirectory: &isDir)
-            let isLink = (try? fm.destinationOfSymbolicLink(atPath: p)) != nil
-            let node = DiskNode(name: Paths.name(p), path: p, size: size,
-                                isDir: exists && isDir.boolValue && !isLink,
+            let node = DiskNode(name: Paths.name(p), path: p, size: size, isDir: true,
                                 isProtected: !Safety.canTrash(p))
             if parts.count == 1 {
                 level1[p] = node
@@ -143,14 +139,39 @@ enum Shell {
             }
         }
 
+        // Plain files (and symlinks) next to those folders.
+        for file in looseFiles(in: base) { level1[file.path] = file }
+        for dir in Array(level1.keys) where level1[dir]?.isDir == true {
+            level2[dir, default: []] += looseFiles(in: dir)
+        }
+
         var kids: [DiskNode] = level1.values.map { node in
             var copy = node
             copy.children = (level2[node.path] ?? []).sorted { $0.size > $1.size }
             return copy
         }
         kids.sort { $0.size > $1.size }
-        if total == 0 { total = kids.reduce(0) { $0 + $1.size } }
+        let childTotal = kids.reduce(0) { $0 + $1.size }
+        if total < childTotal { total = childTotal }
         return FolderScan(path: base, size: total, children: kids, limited: isLimited(result.stderr))
+    }
+
+    /// Files directly inside a folder, sized by the space they take on disk.
+    private static func looseFiles(in dir: String) -> [DiskNode] {
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey, .totalFileAllocatedSizeKey,
+                                      .fileAllocatedSizeKey, .fileSizeKey]
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: URL(fileURLWithPath: dir), includingPropertiesForKeys: keys, options: []) else { return [] }
+        var out: [DiskNode] = []
+        for url in urls {
+            guard let v = try? url.resourceValues(forKeys: Set(keys)) else { continue }
+            if v.isDirectory == true && v.isSymbolicLink != true { continue }
+            let size = Int64(v.totalFileAllocatedSize ?? v.fileAllocatedSize ?? v.fileSize ?? 0)
+            let p = dir + "/" + url.lastPathComponent
+            out.append(DiskNode(name: url.lastPathComponent, path: p, size: size, isDir: false,
+                                isProtected: !Safety.canTrash(p)))
+        }
+        return out
     }
 
     /// Moves items to the Trash the way Finder does, so "Put Back" works.

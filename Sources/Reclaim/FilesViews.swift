@@ -214,7 +214,8 @@ struct LargeFileRow: View {
 
     private var opened: String {
         if let used = file.lastUsed { return "opened \(Format.ago(used))" }
-        return "never opened, changed \(Format.ago(file.modified))"
+        if file.modified > Format.trustworthyDate { return "never opened, changed \(Format.ago(file.modified))" }
+        return "never opened"
     }
 }
 

@@ -135,14 +135,15 @@ struct TideGauge: View {
                     Spacer()
                     Text("\(pct)")
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.55))
-                    Rectangle().fill(.white.opacity(0.35)).frame(width: 9, height: 1)
+                        .foregroundStyle(.white.opacity(0.8))
+                    Rectangle().fill(.white.opacity(0.55)).frame(width: 9, height: 1)
                 }
                 .frame(height: 0)
             }
             Spacer()
         }
         .padding(.trailing, 8)
+        .shadow(color: .black.opacity(0.45), radius: 1.5)
         .allowsHitTesting(false)
     }
 }

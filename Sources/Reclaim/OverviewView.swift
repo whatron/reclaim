@@ -64,22 +64,35 @@ struct OverviewHero: View {
                     GaugeLegend(other: other, reclaim: reclaim, trash: trash, free: d.free)
 
                     HStack(spacing: 12) {
-                        Button {
-                            model.perform(.quickClean)
-                        } label: {
-                            Label(model.recommendedBytes > 0 ? "Clean \(Format.short(model.recommendedBytes)) Safely"
-                                      : "Nothing Safe to Clean Yet",
-                                  systemImage: "sparkles")
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Palette.mint)
-                        .controlSize(.large)
-                        .disabled(model.recommendedBytes == 0 || model.batch != nil)
-
-                        Button("Review Everything") { model.section = .clean }
+                        if model.recommendedBytes > 0 {
+                            Button {
+                                model.perform(.quickClean)
+                            } label: {
+                                Label("Clean \(Format.short(model.recommendedBytes)) Safely", systemImage: "sparkles")
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Palette.mint)
                             .controlSize(.large)
+                            .disabled(model.batch != nil)
+
+                            Button("Review Everything") { model.section = .clean }
+                                .controlSize(.large)
+                        } else {
+                            Button {
+                                model.section = .clean
+                            } label: {
+                                Label("Open Smart Clean", systemImage: "sparkles")
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Palette.sky)
+                            .controlSize(.large)
+                            Button("Open Space Map") { model.openInMap(Paths.home) }
+                                .controlSize(.large)
+                        }
                     }
                     .padding(.top, 4)
                 }
@@ -115,7 +128,7 @@ struct GaugeLegend: View {
         HStack(spacing: 7) {
             swatch().frame(width: 12, height: 12)
             Text(label).foregroundStyle(.secondary)
-            Text(Format.bytes(bytes)).fontWeight(.semibold).monospacedDigit()
+            Text(Format.short(bytes)).fontWeight(.semibold).monospacedDigit()
         }
     }
 }
@@ -227,15 +240,22 @@ struct SpaceBreakdown: View {
             if let scan = model.homeScan {
                 let top = Array(scan.children.prefix(7))
                 let maxSize = max(1, top.first?.size ?? 1)
-                VStack(spacing: 0) {
-                    ForEach(Array(top.enumerated()), id: \.element.id) { index, node in
-                        if index > 0 { Divider().padding(.leading, 58) }
-                        BreakdownRow(node: node, fraction: Double(node.size) / Double(maxSize),
-                                     share: scan.size > 0 ? Double(node.size) / Double(scan.size) : 0,
-                                     color: Palette.ring[index % Palette.ring.count])
+                let reclaimPaths = model.reclaimPaths
+                HStack(alignment: .center, spacing: 18) {
+                    MiniSunburst(scan: scan)
+                        .frame(width: 236, height: 236)
+                        .padding(.leading, 8)
+                    VStack(spacing: 0) {
+                        ForEach(Array(top.enumerated()), id: \.element.id) { index, node in
+                            if index > 0 { Divider().padding(.leading, 58) }
+                            let reclaimable = reclaimPaths.contains { node.path == $0 || node.path.hasPrefix($0 + "/") }
+                            BreakdownRow(node: node, fraction: Double(node.size) / Double(maxSize),
+                                         share: scan.size > 0 ? Double(node.size) / Double(scan.size) : 0,
+                                         color: reclaimable ? Palette.mint : Palette.ring[index % Palette.ring.count])
+                        }
                     }
                 }
-                .card(padding: 6)
+                .card(padding: 10)
             } else {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
@@ -296,6 +316,39 @@ struct BreakdownRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(info?.detail ?? Paths.tilde(node.path))
+    }
+}
+
+/// A small, still version of the Space Map rings that opens the real one.
+struct MiniSunburst: View {
+    @EnvironmentObject var model: AppModel
+    let scan: FolderScan
+    @State var progress: Double = 0
+    @State var hovering = false
+
+    var body: some View {
+        ZStack {
+            SunburstCanvas(progress: progress, segments: Sunburst.segments(for: scan), hovered: nil, selected: nil,
+                           reclaimPaths: model.reclaimPaths)
+            VStack(spacing: 1) {
+                Text("Home").font(.headline)
+                Text(Format.short(scan.size))
+                    .font(.display(20, .heavy))
+                    .monospacedDigit()
+                Text(hovering ? "Open map" : " ")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .scaleEffect(hovering ? 1.02 : 1)
+        .animation(.snappy(duration: 0.2), value: hovering)
+        .contentShape(Circle())
+        .onHover { hovering = $0 }
+        .onTapGesture { model.openInMap(Paths.home) }
+        .help("Open the Space Map")
+        .onAppear {
+            withAnimation(.spring(duration: 1.1, bounce: 0.1)) { progress = 1 }
+        }
     }
 }
 

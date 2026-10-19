@@ -59,7 +59,11 @@ struct LargeFile: Identifiable, Hashable {
     var folder: String { Paths.parent(path) }
 
     /// Days since the file was last opened (or modified, if Spotlight never saw it opened).
-    var idleDays: Int { Format.days(since: lastUsed ?? modified) ?? 0 }
+    var idleDays: Int {
+        let reference = lastUsed ?? modified
+        guard reference > Format.trustworthyDate else { return 0 }
+        return Format.days(since: reference) ?? 0
+    }
 
     var smartNote: String? {
         if category == .installer && folder.hasPrefix(Paths.h("Downloads")) {
@@ -68,7 +72,6 @@ struct LargeFile: Identifiable, Hashable {
         if category == .archive && folder.hasPrefix(Paths.h("Downloads")) {
             return "Archive in Downloads. Usually already extracted."
         }
-        if idleDays > 365 { return "Not opened in over a year." }
         return nil
     }
 }

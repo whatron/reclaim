@@ -9,6 +9,8 @@ struct SmartCleanView: View {
             VStack(alignment: .leading, spacing: 30) {
                 PageHeader(title: "Smart Clean", subtitle: subtitle)
 
+                CleanHero()
+
                 let safe = model.sortedTargets.filter { $0.risk == .safe }
                 if !safe.isEmpty {
                     CleanGroup(title: "Rebuilds itself",
@@ -49,6 +51,113 @@ struct SmartCleanView: View {
             return "Nothing big rebuilds itself right now. Check the items below that are worth a look."
         }
         return "\(count) item\(count == 1 ? "" : "s") that rebuild themselves add up to \(Format.short(model.recommendedBytes)). Untick anything you'd rather keep."
+    }
+}
+
+// MARK: - Live total
+
+/// The amount ticked, drawn as a bar of everything Smart Clean found. Ticking an item fills its segment.
+struct CleanHero: View {
+    @EnvironmentObject var model: AppModel
+
+    private var items: [TargetDef] {
+        model.sortedTargets.filter {
+            $0.isBatchable && $0.isAvailable && $0.id != "trash" && (model.sizes[$0.id]?.bytes ?? 0) > 0
+                // Homebrew's cache sits inside App caches; don't draw it twice.
+                && !(!$0.inTotal && model.targets.contains { t in t.id == "caches" })
+        }
+    }
+
+    var body: some View {
+        let list = items
+        let trash = model.emptyTrashAfterBatch ? model.trashBytes : 0
+        let total = list.compactMap { model.sizes[$0.id]?.bytes }.reduce(0, +) + trash
+        let ticked = model.checkedBytes
+
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(Format.short(ticked))
+                    .font(.display(56, .heavy))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .foregroundStyle(ticked > 0 ? AnyShapeStyle(LinearGradient(colors: [Palette.mint, Palette.sky],
+                                                                              startPoint: .leading, endPoint: .trailing))
+                                     : AnyShapeStyle(Color.secondary))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(ticked > 0 ? "ready to reclaim" : "nothing ticked yet")
+                        .font(.title3.weight(.semibold))
+                    Text("of \(Format.short(total)) Smart Clean found")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .animation(.snappy, value: ticked)
+
+            GeometryReader { geo in
+                let gaps = CGFloat(max(0, list.count - 1 + (trash > 0 ? 1 : 0))) * 3
+                let usable = max(0, geo.size.width - gaps)
+                HStack(spacing: 3) {
+                    ForEach(Array(list.enumerated()), id: \.element.id) { index, t in
+                        let bytes = model.sizes[t.id]?.bytes ?? 0
+                        let on = model.checked.contains(t.id)
+                        let color = Palette.ring[index % Palette.ring.count]
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(on ? AnyShapeStyle(color.gradient) : AnyShapeStyle(color.opacity(0.16)))
+                            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(color.opacity(on ? 0 : 0.45), lineWidth: 1))
+                            .frame(width: max(4, usable * CGFloat(Double(bytes) / Double(max(total, 1)))))
+                            .help("\(t.name): \(Format.bytes(bytes))")
+                            .onTapGesture { toggle(t) }
+                    }
+                    if trash > 0 {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Palette.coral.gradient)
+                            .frame(width: max(4, usable * CGFloat(Double(trash) / Double(max(total, 1)))))
+                            .help("Trash: \(Format.bytes(trash))")
+                    }
+                }
+            }
+            .frame(height: 30)
+            .animation(.snappy(duration: 0.3), value: model.checked)
+
+            let tickedItems = list.enumerated().filter { model.checked.contains($0.element.id) }
+            if !tickedItems.isEmpty {
+                FlowLegend(entries: tickedItems.map { (index, t) in
+                    (t.name, model.sizes[t.id]?.bytes ?? 0, Palette.ring[index % Palette.ring.count])
+                })
+            }
+        }
+        .padding(20)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(LinearGradient(colors: [Palette.mint.opacity(0.10), Palette.sky.opacity(0.05)],
+                                 startPoint: .topLeading, endPoint: .bottomTrailing)))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Palette.mint.opacity(0.22)))
+    }
+
+    private func toggle(_ t: TargetDef) {
+        if model.checked.contains(t.id) { model.checked.remove(t.id) } else { model.checked.insert(t.id) }
+    }
+}
+
+/// Small coloured name-and-size labels that wrap onto new lines.
+struct FlowLegend: View {
+    let entries: [(String, Int64, Color)]
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 10, alignment: .leading)],
+                  alignment: .leading, spacing: 6) {
+            ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+                HStack(spacing: 6) {
+                    Circle().fill(entry.2).frame(width: 8, height: 8)
+                    Text(entry.0).lineLimit(1)
+                    Text(Format.short(entry.1))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .font(.callout)
+            }
+        }
     }
 }
 
@@ -341,12 +450,8 @@ struct CleanDock: View {
         let bytes = model.checkedBytes
         let emptying = model.emptyTrashAfterBatch
         ActionDock {
-            ZStack {
-                TideGauge(total: max(bytes, 1), other: 0, reclaim: bytes, trash: 0,
-                          showTicks: false, cornerFraction: 0.35, animated: false)
-                    .opacity(bytes > 0 ? 1 : 0.35)
-            }
-            .frame(width: 22, height: 34)
+            SymbolTile(symbol: "sparkles", tint: emptying ? Palette.coral : Palette.mint, size: 32)
+                .opacity(count > 0 ? 1 : 0.45)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(count == 0 ? "Nothing ticked" : "\(count) item\(count == 1 ? "" : "s") ticked")

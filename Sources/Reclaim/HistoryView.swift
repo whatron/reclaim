@@ -11,7 +11,7 @@ struct HistoryView: View {
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Free space").font(.display(21, .bold))
-                    if model.history.count >= 2, let d = model.disk {
+                    if hasTrend, let d = model.disk {
                         FreeSpaceChart(history: model.history, forecast: model.forecast, total: d.total)
                             .frame(height: 280)
                             .card()
@@ -28,8 +28,10 @@ struct HistoryView: View {
                 }
 
                 HStack(spacing: 14) {
-                    StatTile(value: Format.short(model.lifetimeFreed), label: "freed with Reclaim",
-                             tint: Palette.mint, symbol: "sparkles")
+                    if model.lifetimeFreed > 0 {
+                        StatTile(value: Format.short(model.lifetimeFreed), label: "freed with Reclaim",
+                                 tint: Palette.mint, symbol: "sparkles")
+                    }
                     if let change = weekChange {
                         StatTile(value: Format.signed(change),
                                  label: "free space since last week",
@@ -51,6 +53,12 @@ struct HistoryView: View {
             .frame(maxWidth: .infinity)
         }
         .navigationTitle("History")
+    }
+
+    /// At least three readings spread over two hours or more.
+    private var hasTrend: Bool {
+        guard model.history.count >= 3, let first = model.history.first, let last = model.history.last else { return false }
+        return last.date.timeIntervalSince(first.date) >= 2 * 3600
     }
 
     /// Change in free space compared with about a week ago.

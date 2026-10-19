@@ -227,7 +227,13 @@ extension AppModel {
             for t in targets { if let b = sizes[t.id]?.bytes { known[t.id] = b } }
         }
         lastSnapshotAt = Date()
-        history.append(Snapshot(date: Date(), free: d.free, total: d.total, targets: known))
+        let snapshot = Snapshot(date: Date(), free: d.free, total: d.total, targets: known)
+        // The first reading of a session is taken before sizes are known; replace it once they are.
+        if let last = history.last, last.targets.isEmpty, Date().timeIntervalSince(last.date) < 3600 {
+            history[history.count - 1] = snapshot
+        } else {
+            history.append(snapshot)
+        }
         history = HistoryStore.compact(history)
         let copy = history
         Task.detached(priority: .background) { HistoryStore.save(copy) }
