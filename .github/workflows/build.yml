@@ -1,0 +1,35 @@
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Reclaim.app
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Build the app
+        run: ./build.sh --no-open
+
+      - name: Zip the app
+        run: ditto -c -k --keepParent build/Reclaim.app build/Reclaim.zip
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Reclaim-app
+          path: build/Reclaim.zip
+          retention-days: 14
