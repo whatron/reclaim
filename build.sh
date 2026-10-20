@@ -22,10 +22,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Reclaim"
 cp Support/Info.plist "$APP/Contents/Info.plist"
 
-# Version: the major.minor in VERSION, then the number of commits, e.g. 1.1.24.
-# The GitHub build check passes RECLAIM_VERSION in; local builds work it out the same way.
+# Version: the release number in VERSION (e.g. 0.1.0). The GitHub build check passes
+# RECLAIM_VERSION in, adding a build label for builds that aren't a release.
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
-VERSION="${RECLAIM_VERSION:-$(cat VERSION).$BUILD_NUMBER}"
+VERSION="${RECLAIM_VERSION:-$(cat VERSION)}"
 COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
