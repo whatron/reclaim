@@ -25,6 +25,18 @@ jobs:
       APP: ${{ github.ref != 'refs/heads/main' && contains(github.event.head_commit.message, '[app]') }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # the version number counts commits
+
+      # 1.1.<commits> on main; other branches add their name, e.g. 1.1.30-faster-map.
+      - name: Work out the version
+        run: |
+          version="$(cat VERSION).$(git rev-list --count HEAD)"
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            version="$version-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9' '-')"
+          fi
+          echo "RECLAIM_VERSION=$version" >> "$GITHUB_ENV"
+          echo "Version $version"
 
       - name: Show toolchain
         run: |
@@ -66,13 +78,64 @@ jobs:
             -F "output[text]=@report.txt" > /dev/null || echo "Couldn't publish the compiler messages."
 
       - name: Zip the app
-        run: ditto -c -k --keepParent build/Reclaim.app build/Reclaim.zip
+        run: |
+          ditto -c -k --keepParent build/Reclaim.app "build/Reclaim-$RECLAIM_VERSION.zip"
+          cp "build/Reclaim-$RECLAIM_VERSION.zip" build/Reclaim.zip
 
       - uses: actions/upload-artifact@v5
         with:
-          name: Reclaim-app
-          path: build/Reclaim.zip
+          name: Reclaim-${{ env.RECLAIM_VERSION }}
+          path: build/Reclaim-${{ env.RECLAIM_VERSION }}.zip
           retention-days: 14
+
+      # Every merge to main becomes a release with the app attached: one place to find
+      # the latest version, kept for good (artifacts expire after 14 days).
+      - name: Publish a release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'NOTES'
+          ### Install
+          1. Download **Reclaim-VERSION.zip** below and double-click it.
+          2. Drag **Reclaim** into Applications, replacing any older copy.
+          3. First time only: open it, then go to **System Settings → Privacy & Security** and click **Open Anyway** (the app isn't notarized).
+
+          For Apple-silicon Macs. On an Intel Mac, build from source with `./build.sh --install`.
+          NOTES
+          sed -i '' "s/VERSION/$RECLAIM_VERSION/" notes.md
+          gh release create "v$RECLAIM_VERSION" "build/Reclaim-$RECLAIM_VERSION.zip" \
+            --title "Reclaim $RECLAIM_VERSION" --notes-file notes.md --generate-notes \
+            --target "$GITHUB_SHA" --latest
+
+      - name: Summary
+        if: always()
+        run: |
+          repo="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          {
+            if [ -f "build/Reclaim-$RECLAIM_VERSION.zip" ]; then
+              echo "## ✅ Reclaim $RECLAIM_VERSION built"
+            else
+              echo "## ❌ Reclaim $RECLAIM_VERSION didn't build"
+              echo
+              echo "See the **Compiler messages** check for the errors."
+            fi
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Version | **$RECLAIM_VERSION** |"
+            echo "| Commit | [\`${GITHUB_SHA::7}\`]($repo/commit/$GITHUB_SHA) on \`$GITHUB_REF_NAME\` |"
+            echo "| Built with | $(xcodebuild -version | head -1) on $(sw_vers -productName) $(sw_vers -productVersion) |"
+            if [ -f "build/Reclaim-$RECLAIM_VERSION.zip" ]; then
+              if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+                echo "| Download | [Reclaim-$RECLAIM_VERSION.zip on the release page]($repo/releases/tag/v$RECLAIM_VERSION) |"
+              else
+                echo "| Download | **Reclaim-$RECLAIM_VERSION** under *Artifacts* at the bottom of this page (kept 14 days) |"
+              fi
+            fi
+            echo
+            echo "Latest release, always: $repo/releases/latest"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Commit messages containing [screenshots] also photograph every page and push the
       # pictures to the `screenshots` branch.

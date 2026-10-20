@@ -119,6 +119,9 @@ struct MenuBarPanel: View {
 
             HStack {
                 Button("Open Reclaim") { openMain() }
+                Text(AppVersion.version)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
                 Spacer()
                 Button {
                     model.rescan()
@@ -182,6 +185,22 @@ struct SettingsView: View {
                     }
                 }
             }
+            Section("About") {
+                HStack(spacing: 12) {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath))
+                        .resizable()
+                        .frame(width: 36, height: 36)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Reclaim \(AppVersion.version)").font(.headline)
+                        Text("Build \(AppVersion.build), commit \(AppVersion.commit)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                    Spacer()
+                    Link("Latest Release", destination: AppVersion.releasesURL)
+                }
+            }
             Section {
                 Toggle("Show free space in the menu bar", isOn: $showInMenuBar)
                 Toggle("Warn me when my Mac is nearly full", isOn: $lowSpaceAlerts)
@@ -194,5 +213,17 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 470)
         .fixedSize()
+    }
+}
+
+/// The version stamped in by build.sh, e.g. 1.1.25.
+enum AppVersion {
+    static var version: String { info("CFBundleShortVersionString") ?? "dev" }
+    static var build: String { info("CFBundleVersion") ?? "0" }
+    static var commit: String { info("ReclaimCommit") ?? "unknown" }
+    static let releasesURL = URL(string: "https://github.com/whatron/reclaim/releases/latest")!
+
+    private static func info(_ key: String) -> String? {
+        Bundle.main.object(forInfoDictionaryKey: key) as? String
     }
 }

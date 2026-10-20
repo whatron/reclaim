@@ -3,6 +3,7 @@
 [![Build](https://github.com/whatron/reclaim/actions/workflows/build.yml/badge.svg)](https://github.com/whatron/reclaim/actions/workflows/build.yml)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
 ![Swift](https://img.shields.io/badge/SwiftUI-native-orange)
+[![Latest release](https://img.shields.io/badge/download-latest%20release-2ea44f)](https://github.com/whatron/reclaim/releases/latest)
 
 **See what's filling your Mac, understand it, and get the space back safely.**
 
@@ -197,7 +198,9 @@ You need **macOS 14 Sonoma or later**.
 
 ### Download a build
 
-Every push is compiled on GitHub. Open the latest successful [Build run](https://github.com/whatron/reclaim/actions/workflows/build.yml) and download **Reclaim-app** (for Apple-silicon Macs; on an Intel Mac, build from source). Unzip it and drag **Reclaim** to Applications.
+**[Download the latest release →](https://github.com/whatron/reclaim/releases/latest)**
+
+Every merge to `main` publishes a release named after its version, such as **Reclaim 1.1.25**, with **Reclaim-1.1.25.zip** attached under *Assets*. It's for Apple-silicon Macs; on an Intel Mac, build from source. Unzip it and drag **Reclaim** to Applications. To see which version you have, open Reclaim's Settings (⌘,).
 
 The download isn't notarized, so the first time you open it, go to **System Settings → Privacy & Security** and click **Open Anyway**.
 
@@ -247,7 +250,9 @@ To work on the code in Xcode, open `Package.swift`.
 
 ### Build check
 
-`.github/workflows/build.yml` compiles the app on GitHub's macOS 26 runner on every push, uploads **Reclaim-app**, and publishes compiler errors and warnings as a **Compiler messages** check. Two words in a commit message switch on extras:
+`.github/workflows/build.yml` compiles the app on GitHub's macOS 26 runner on every push and publishes compiler errors and warnings as a **Compiler messages** check. Each run's page starts with a summary of the version and where to download it.
+
+**Versions** are the major and minor version in `VERSION`, followed by the number of commits, for example `1.1.25`. Builds from other branches add the branch name, for example `1.1.26-faster-map`, and attach a **Reclaim-<version>** zip to the run for 14 days. Every merge to `main` publishes a GitHub release, `v1.1.25`, with the zip attached. To start a new minor version, edit `VERSION`. Two words in a commit message switch on extras:
 
 - `[screenshots]` sets up a few demo code projects, photographs every page in dark and light mode, and pushes the pictures to the `screenshots` branch.
 - `[app]` pushes the built `Reclaim.zip` to the `app-build` branch.
