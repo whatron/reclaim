@@ -41,7 +41,7 @@ enum Access {
     }
 
     /// macOS sometimes only applies Full Disk Access after the app restarts.
-    static func relaunch() {
+    @MainActor static func relaunch() {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
         process.arguments = ["-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"",
