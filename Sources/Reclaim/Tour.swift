@@ -15,6 +15,7 @@ enum Tour {
         NSApp.appearance = NSAppearance(named: .darkAqua)
         NSApp.activate()
 
+        let started = Date()
         model.loadLarge()
         model.loadProjects()
         model.loadApps()
@@ -28,6 +29,19 @@ enum Tour {
             if done { break }
             try? await Task.sleep(nanoseconds: 1_000_000_000)
         }
+
+        // Timings for the build report: the first measurement, then opening folders from the index.
+        var timings = ["First measurement of the home folder (plus the other scans): \(String(format: "%.1f", Date().timeIntervalSince(started))) s"]
+        let folders = (model.homeScan?.children ?? []).filter { $0.isDir }.prefix(4).map(\.path)
+        for path in folders + [Paths.home] {
+            let t0 = Date()
+            model.explore(path)
+            while !(model.scan?.path == path && !model.scanning) && Date().timeIntervalSince(t0) < 60 {
+                try? await Task.sleep(nanoseconds: 5_000_000)
+            }
+            timings.append("Open \(Paths.tilde(path)): \(Int(Date().timeIntervalSince(t0) * 1000)) ms")
+        }
+        try? timings.joined(separator: "\n").write(toFile: folder + "/timings.txt", atomically: true, encoding: .utf8)
 
         // Show the one-click clean with everything big ticked, so the live bar has something to draw.
         model.checked = Set(model.targets.filter {

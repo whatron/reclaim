@@ -81,6 +81,14 @@ jobs:
         run: |
           {
             echo "## Screenshots"; ls -la shots 2>&1 || true
+            echo "## Timings"; cat build/tour/timings.txt 2>&1 || true
+            echo; echo "## The old way: measuring a folder each time it opens"
+            for d in "$HOME" "$HOME/Library" "$HOME/hostedtoolcache"; do
+              s=$(python3 -c "import time;print(time.time())")
+              /usr/bin/du -k -d 2 -x "$d" > /dev/null 2>&1
+              e=$(python3 -c 'import time;print(time.time())')
+              python3 -c "print('du -d 2 ${d/$HOME/~}: %.2f s' % ($e - $s))"
+            done
             echo; echo "## Tour folder"; ls -la build/tour 2>&1 || true; cat build/tour/now 2>&1 || true
             echo; echo "## Crash reports"
             for f in $(ls -t ~/Library/Logs/DiagnosticReports/Reclaim* 2>/dev/null | head -2); do
