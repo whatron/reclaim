@@ -1,9 +1,11 @@
 #!/bin/bash
 # Builds Reclaim.app from source.
-#   ./build.sh            build, then open the app
-#   ./build.sh --install  build, copy to /Applications, then open it
+#   ./build.sh             build, then open the app
+#   ./build.sh --install   build, copy to /Applications, then open it
+#   ./build.sh --no-open   build only (used by the GitHub build check)
 set -euo pipefail
 cd "$(dirname "$0")"
+MODE="${1:-}"
 
 if ! command -v swift >/dev/null 2>&1; then
   echo "Swift isn't installed. Run:  xcode-select --install   then try again."
@@ -32,12 +34,18 @@ fi
 # Ad-hoc signature so macOS will launch it. Built locally, so Gatekeeper doesn't quarantine it.
 codesign --force --sign - "$APP" >/dev/null
 
-if [ "${1:-}" = "--install" ]; then
-  rm -rf /Applications/Reclaim.app
-  cp -R "$APP" /Applications/
-  echo "Installed to /Applications/Reclaim.app"
-  open /Applications/Reclaim.app
-else
-  echo "Built $APP"
-  open "$APP"
-fi
+case "$MODE" in
+  --install)
+    rm -rf /Applications/Reclaim.app
+    cp -R "$APP" /Applications/
+    echo "Installed to /Applications/Reclaim.app"
+    open /Applications/Reclaim.app
+    ;;
+  --no-open)
+    echo "Built $APP"
+    ;;
+  *)
+    echo "Built $APP"
+    open "$APP"
+    ;;
+esac
