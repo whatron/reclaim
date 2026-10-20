@@ -41,6 +41,7 @@ struct ReclaimApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(model)
         }
     }
 }
@@ -153,11 +154,34 @@ struct MenuBarPanel: View {
 // MARK: - Settings
 
 struct SettingsView: View {
+    @EnvironmentObject var model: AppModel
+    @Environment(\.openWindow) var openWindow
     @AppStorage("showInMenuBar") var showInMenuBar = true
     @AppStorage("lowSpaceAlerts") var lowSpaceAlerts = true
 
     var body: some View {
         Form {
+            Section("Access") {
+                HStack(spacing: 10) {
+                    Image(systemName: model.hasFullDiskAccess ? "checkmark.shield.fill" : "exclamationmark.shield")
+                        .foregroundStyle(model.hasFullDiskAccess ? Palette.mint : Palette.sand)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(model.hasFullDiskAccess ? "Full Disk Access is on" : "Full Disk Access is off")
+                        Text(model.hasFullDiskAccess ? "Reclaim can measure every folder."
+                             : "Library, the Trash and some app data are only partly measured.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !model.hasFullDiskAccess {
+                        Button("Set Up…") {
+                            openWindow(id: "main")
+                            NSApp.activate()
+                            model.showAccessSheet = true
+                        }
+                    }
+                }
+            }
             Section {
                 Toggle("Show free space in the menu bar", isOn: $showInMenuBar)
                 Toggle("Warn me when my Mac is nearly full", isOn: $lowSpaceAlerts)
