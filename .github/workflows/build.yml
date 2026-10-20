@@ -100,6 +100,15 @@ jobs:
           path: build/Reclaim-${{ env.RECLAIM_VERSION }}.zip
           retention-days: 14
 
+      # Installs the latest release over a copy of this build, with the update sheet open, and checks
+      # that the app quits, swaps and reopens. Shown as the "Update test" check; doesn't fail the build.
+      - name: Test updating in place
+        if: github.ref != 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./Scripts/test_update.sh
+
       # A new number in VERSION, merged to main, becomes a release with the app attached.
       # Releases are kept for good; build artifacts expire after 14 days.
       - name: Publish a release

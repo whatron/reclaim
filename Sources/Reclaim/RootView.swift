@@ -32,6 +32,11 @@ struct RootView: View {
             ConfirmSheet(action: action)
         }
         .task { await Tour.run(model, updater: updater) }
+        .task {
+            if ProcessInfo.processInfo.environment["RECLAIM_TEST_UPDATE"] != nil {
+                await updater.testInstallLatest()
+            }
+        }
         .task { updater.start() }
         .background {
             Color.clear
