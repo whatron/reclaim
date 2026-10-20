@@ -128,7 +128,7 @@ struct AppCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: app.path))
+                Image(nsImage: Icons.icon(app.path))
                     .resizable()
                     .frame(width: 54, height: 54)
                     .shadow(color: .black.opacity(0.15), radius: 4, y: 2)

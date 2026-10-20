@@ -169,7 +169,7 @@ struct LargeFileRow: View {
         HStack(spacing: 14) {
             RoundCheck(isOn: isOn, tint: Palette.sky)
                 .opacity(file.isProtected ? 0.25 : 1)
-            Image(nsImage: NSWorkspace.shared.icon(forFile: file.path))
+            Image(nsImage: Icons.icon(file.path))
                 .resizable()
                 .frame(width: 34, height: 34)
             VStack(alignment: .leading, spacing: 3) {
@@ -337,7 +337,7 @@ struct DuplicateCard: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
                 if let first = group.files.first {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: first.path))
+                    Image(nsImage: Icons.icon(first.path))
                         .resizable()
                         .frame(width: 38, height: 38)
                 }

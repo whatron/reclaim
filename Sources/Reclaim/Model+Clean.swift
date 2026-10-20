@@ -95,7 +95,6 @@ extension AppModel {
             return (false, 0)
         }
 
-        scanCache.removeAll()
         await measure(t)
         if case .trashContents = t.kind, let trashTarget = targets.first(where: { $0.id == "trash" }) {
             await measure(trashTarget)
@@ -104,7 +103,7 @@ extension AppModel {
         let cleared = max(0, before - after)
 
         if !silent {
-            refreshDisk()
+            refreshDisk(force: true)
             let freed = max(0, (disk?.free ?? freeBefore) - freeBefore)
             if case .trashContents = t.kind {
                 if ok { message += " Empty the Trash to get the space back." }
@@ -115,7 +114,7 @@ extension AppModel {
             }
             addLog(message, ok: ok, output: output, freed: freed)
             flash(message, ok: ok)
-            refreshExploredFolder()
+            updateMap(changed: t.paths + (t.kind.movesToTrash ? [Paths.trash] : []))
         } else {
             addLog(message, ok: ok, output: output)
         }
@@ -169,7 +168,7 @@ extension AppModel {
             if !r.ok { failures.append("Trash") }
             batch?.done += 1
         }
-        refreshDisk()
+        refreshDisk(force: true)
         let freed = max(0, (disk?.free ?? freeBefore) - freeBefore)
         addFreed(freed)
         var message = freed > 0 ? "Freed \(Format.bytes(freed))." : "Cleanup finished."
@@ -182,13 +181,7 @@ extension AppModel {
         checked.subtract(ids)
         withAnimation(.snappy) { batch = nil }
         if freed > 0 { celebration = freed }
-        refreshExploredFolder()
-    }
-
-    func refreshExploredFolder() {
-        scanCache.removeAll()
-        if scan != nil { explore(explorePath, force: true) }
-        if homeScan != nil { scanHome() }
+        updateMap(changed: Array(Set(list.flatMap { $0.paths } + [Paths.trash])))
     }
 
     // MARK: Ollama
@@ -227,7 +220,7 @@ extension AppModel {
         let results = await background { names.map { ($0, Shell.run(["ollama", "rm", $0], timeout: 300)) } }
         names.forEach { busy.remove("m:" + $0) }
         let failed = results.filter { !$0.1.ok }.map { $0.0 }
-        refreshDisk()
+        refreshDisk(force: true)
         let freed = max(0, (disk?.free ?? freeBefore) - freeBefore)
         addFreed(freed)
         var message = "Removed \(names.count - failed.count) model\(names.count - failed.count == 1 ? "" : "s")."
@@ -238,6 +231,7 @@ extension AppModel {
         if freed > 0 { celebration = freed }
         loadOllama()
         if let t = targets.first(where: { $0.id == "ollama" }) { await measure(t) }
+        updateMap(changed: [Paths.h(".ollama/models")])
     }
 
     // MARK: Moving things to the Trash
@@ -250,17 +244,17 @@ extension AppModel {
         }
         let total = allowed.reduce(Int64(0)) { $0 + $1.size }
         let single = allowed.count == 1
-        let paths = allowed.map { $0.path }
         pending = PendingAction(
             title: title ?? (single ? "Move “\(allowed[0].name)” to the Trash?" : "Move \(allowed.count) items to the Trash?"),
             message: "\(Format.bytes(total)) in total. You can put \(single ? "it" : "them") back from the Trash until you empty it.",
             items: single ? [] : Array(allowed.prefix(12).map { "\($0.name), \(Format.bytes($0.size))" }),
             command: single ? Paths.tilde(allowed[0].path) : nil,
             confirmLabel: "Move to Trash"
-        ) { await self.performTrash(paths, bytes: total) }
+        ) { await self.performTrash(allowed, bytes: total) }
     }
 
-    func performTrash(_ paths: [String], bytes: Int64) async {
+    func performTrash(_ items: [TrashItem], bytes: Int64) async {
+        let paths = items.map(\.path)
         let r = await background { Shell.moveToTrash(paths) }
         let ok = r.errors.isEmpty
         var message = paths.count == 1 && r.moved == 1
@@ -292,7 +286,7 @@ extension AppModel {
             }
             if touched { Task { await self.measure(t) } }
         }
-        refreshDisk()
-        refreshExploredFolder()
+        refreshDisk(force: true)
+        updateMap(changed: [Paths.trash], trashed: items.filter { !FileManager.default.fileExists(atPath: $0.path) })
     }
 }
