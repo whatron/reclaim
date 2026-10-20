@@ -159,6 +159,8 @@ jobs:
       - name: Take screenshots
         if: env.SHOTS == 'true'
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}  # lets the tour's update check reach the releases
         run: ./Scripts/screenshot_tour.sh shots
 
       - name: Report the tour

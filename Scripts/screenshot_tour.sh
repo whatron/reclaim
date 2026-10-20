@@ -16,7 +16,7 @@ while [ $SECONDS -lt $end ]; do
   [ "$now" = "finished" ] && break
   if [ -n "$now" ] && [ "$now" != "$last" ]; then
     wid=$(./build/window_id)
-    if [[ "$now" == *access* ]]; then
+    if [[ "$now" == *access* || "$now" == *update* ]]; then
       screencapture -x -R"$(./build/window_id bounds)" "$OUT/$now.png"
     elif [ "$wid" != "0" ]; then
       screencapture -x -o -l"$wid" "$OUT/$now.png"

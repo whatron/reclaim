@@ -8,7 +8,7 @@ import Foundation
 enum Tour {
     static var folder: String? { ProcessInfo.processInfo.environment["RECLAIM_TOUR"] }
 
-    static func run(_ model: AppModel) async {
+    static func run(_ model: AppModel, updater: Updater) async {
         guard let folder else { return }
         let fm = FileManager.default
         try? fm.createDirectory(atPath: folder, withIntermediateDirectories: true)
@@ -41,6 +41,7 @@ enum Tour {
             }
             timings.append("Open \(Paths.tilde(path)): \(Int(Date().timeIntervalSince(t0) * 1000)) ms")
         }
+        timings.append(await updater.tourShowLatest())
         try? timings.joined(separator: "\n").write(toFile: folder + "/timings.txt", atomically: true, encoding: .utf8)
 
         // Show the one-click clean with everything big ticked, so the live bar has something to draw.
@@ -54,6 +55,7 @@ enum Tour {
             ("dark-duplicates", .duplicates, true), ("dark-apps", .apps, true), ("dark-history", .history, true),
             ("dark-blocks", .map, true),
             ("dark-access", .overview, true), ("light-access", .overview, false),
+            ("dark-update", .overview, true),
             ("light-overview", .overview, false), ("light-clean", .clean, false), ("light-map", .map, false),
             ("light-projects", .projects, false), ("light-files", .files, false), ("light-apps", .apps, false),
         ]
@@ -61,6 +63,7 @@ enum Tour {
             NSApp.appearance = NSAppearance(named: page.dark ? .darkAqua : .aqua)
             model.section = page.section
             model.showAccessSheet = page.name.hasSuffix("access")
+            updater.showSheet = page.name.hasSuffix("update")
             if page.section == .map {
                 model.mapStyle = page.name.hasSuffix("blocks") ? .blocks : .rings
                 model.explore(Paths.home)
