@@ -70,6 +70,10 @@ jobs:
 
       # Commit messages containing [screenshots] also photograph every page and push the
       # pictures to the `screenshots` branch.
+      - name: Set up demo projects
+        if: contains(github.event.head_commit.message, '[screenshots]')
+        run: ./Scripts/demo_projects.sh
+
       - name: Take screenshots
         if: contains(github.event.head_commit.message, '[screenshots]')
         run: ./Scripts/screenshot_tour.sh shots

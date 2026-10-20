@@ -38,12 +38,15 @@ enum Tour {
             ("dark-overview", .overview, true), ("dark-clean", .clean, true), ("dark-map", .map, true),
             ("dark-projects", .projects, true), ("dark-files", .files, true),
             ("dark-duplicates", .duplicates, true), ("dark-apps", .apps, true), ("dark-history", .history, true),
+            ("dark-blocks", .map, true),
             ("light-overview", .overview, false), ("light-clean", .clean, false), ("light-map", .map, false),
+            ("light-projects", .projects, false), ("light-files", .files, false), ("light-apps", .apps, false),
         ]
         for page in pages {
             NSApp.appearance = NSAppearance(named: page.dark ? .darkAqua : .aqua)
             model.section = page.section
             if page.section == .map {
+                model.mapStyle = page.name.hasSuffix("blocks") ? .blocks : .rings
                 model.explore(Paths.home)
                 if let biggest = model.homeScan?.children.first(where: { $0.isDir }) {
                     model.selection = biggest
