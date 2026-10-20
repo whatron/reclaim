@@ -141,7 +141,8 @@ struct StatTile: View {
                 Text(label)
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
@@ -232,7 +233,8 @@ struct ArtifactRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(artifact.name)
                     .font(.system(.callout, design: .monospaced).weight(.semibold))
-                Text("\(artifact.kind.label). Rebuild with \(artifact.kind.rebuild).")
+                Text(artifact.kind.label == artifact.name ? "Rebuild with \(artifact.kind.rebuild)."
+                     : "\(artifact.kind.label). Rebuild with \(artifact.kind.rebuild).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

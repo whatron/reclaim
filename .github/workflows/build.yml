@@ -88,3 +88,15 @@ jobs:
           git add .
           git commit -q -m "Screenshots of ${GITHUB_SHA::7}"
           git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" screenshots
+
+      # Commit messages containing [app] also push the built app to the `app-build` branch.
+      - name: Publish the app
+        if: contains(github.event.head_commit.message, '[app]')
+        run: |
+          mkdir -p out && cp build/Reclaim.zip out/
+          cd out
+          git init -q -b app-build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add . && git commit -q -m "Reclaim.app built from ${GITHUB_SHA::7}"
+          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" app-build
