@@ -15,6 +15,14 @@ Reclaim is a native SwiftUI app for people whose disk keeps filling up, especial
 
 Your disk is drawn as a glass vessel. **Deep blue water** is your data, the **glowing mint shallows** are what Reclaim can clear, **coral** is the Trash, and the **air** above is free space. Every cleanup drains the mint.
 
+**Install** in Terminal (Apple-silicon Mac, macOS 14 or later):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whatron/reclaim/main/install.sh | bash
+```
+
+Then turn on the one permission Reclaim asks for. Other options are under [Install](#install).
+
 <p align="center"><sub>All screenshots were taken automatically on GitHub's macOS build machine, with a few demo code projects added, so the folders and apps shown are its own.</sub></p>
 
 ---
@@ -194,44 +202,90 @@ Recommendations are ranked by the space they'd free. Warnings, such as a forecas
 
 ## Install
 
-You need **macOS 14 Sonoma or later**.
+You need **macOS 14 Sonoma or later** on an **Apple-silicon Mac** (M1 or newer). On an Intel Mac, [build from source](#build-from-source).
 
-### Install with one command (recommended)
+### 1. Install
 
-This installs or updates to the latest release, without macOS's "unsafe app" warning. It needs the [GitHub CLI](https://cli.github.com) signed in to your account (`brew install gh`, then `gh auth login`):
+Open **Terminal** (in Applications → Utilities), paste this line and press Return:
 
 ```bash
-gh api -H "Accept: application/vnd.github.raw" repos/whatron/reclaim/contents/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/whatron/reclaim/main/install.sh | bash
 ```
 
-If you've cloned the repo, `./install.sh` does the same. To install a particular release, add its tag, for example `./install.sh v0.1.0`. The script quits Reclaim if it's running, replaces the copy in Applications, tells you which version you went from and to, and opens it.
+That's it. The script:
 
-There's no warning because macOS only flags apps downloaded through a browser for its security check. Files fetched from the command line aren't flagged.
+- downloads the latest release from this repo's [Releases](https://github.com/whatron/reclaim/releases/latest) page,
+- quits Reclaim if it's already running,
+- puts the new copy in **Applications**, asking for your password only if that folder needs it,
+- tells you which version you went from and to, and opens Reclaim.
 
-### Download a build
+macOS doesn't show its "can't check this app for malicious software" warning, because it only flags apps downloaded through a browser.
 
-**[Download the latest release →](https://github.com/whatron/reclaim/releases/latest)**
+To install a particular version, add its tag:
 
-Each release, such as **Reclaim 0.1.0**, has **Reclaim-0.1.0.zip** attached under *Assets*. It's for Apple-silicon Macs; on an Intel Mac, build from source. Unzip it and drag **Reclaim** to Applications. To see which version you have, open Reclaim's Settings (⌘,).
+```bash
+curl -fsSL https://raw.githubusercontent.com/whatron/reclaim/main/install.sh | bash -s -- v0.1.0
+```
 
-The download isn't notarized, so the first time you open it, macOS says it can't check it for malicious software. Go to **System Settings → Privacy & Security** and click **Open Anyway**, or skip that by using the install command above.
+### 2. Give Reclaim one permission
 
-### Build from source
+The first time Reclaim opens, it asks for **Full Disk Access**. That one switch replaces separate prompts for Documents, Desktop and Downloads, and lets Reclaim measure Library, the Trash, Mail and app data.
 
-You need Xcode 16 or later, or the Command Line Tools (`xcode-select --install`).
+1. Click **Open System Settings**. It opens straight to the Full Disk Access list.
+2. Turn on **Reclaim**. If it isn't in the list, drag the Reclaim icon from the welcome screen into the list, then turn it on.
+3. Come back to Reclaim. It notices within a second and starts scanning. If it doesn't, click **Restart Reclaim**.
+
+You can choose **Continue with Limited Access** instead. macOS will then ask about each protected folder separately, and Library and the Trash are only partly measured. You can turn on Full Disk Access later from **Settings → Access**.
+
+### 3. Stay up to date
+
+Reclaim checks for a new release when it opens and once a day after that. When there is one, an **Update available** button appears in the sidebar and the menu bar panel. Click it, then **Install and Relaunch**: Reclaim downloads the update, swaps itself out and reopens a few seconds later, without the warning.
+
+To check yourself, use **Reclaim → Check for Updates…** or **Settings → About**, where you can also turn off automatic checks. Running the install command again also updates Reclaim.
+
+Each version has a new signature, so after an update macOS may ask for Full Disk Access again. Reclaim's welcome screen walks you through it.
+
+### Other ways to install
+
+#### Download the zip
+
+1. On the [latest release](https://github.com/whatron/reclaim/releases/latest), download **Reclaim-<version>.zip** under *Assets*.
+2. Double-click it, then drag **Reclaim** into Applications.
+3. Open Reclaim. macOS says it can't verify the app. Click **Done**.
+4. Open **System Settings → Privacy & Security**, scroll down to the message about Reclaim, and click **Open Anyway**. Confirm with your password or Touch ID.
+
+You only need to do this once per downloaded copy. Updates from inside the app skip this step.
+
+#### Build from source
+
+You need Xcode 16 or later, or the Command Line Tools (`xcode-select --install`). This also works on Intel Macs.
 
 ```bash
 git clone https://github.com/whatron/reclaim.git
 cd reclaim
-./build.sh --install     # builds, copies to /Applications, opens it
+./build.sh --install     # builds, copies to Applications, opens it
 ```
 
-`./build.sh` alone builds into `build/Reclaim.app` and opens it from there.
+`./build.sh` on its own builds into `build/Reclaim.app` and opens it from there. Apps you build yourself don't get the warning.
 
-### First launch
+### Uninstall
 
-1. macOS asks whether Reclaim can read Documents, Desktop and Downloads. Allow it so those folders are measured.
-2. For exact numbers in Library, app containers and the Trash, turn on **Full Disk Access**: System Settings → Privacy & Security → Full Disk Access, then add Reclaim. Reclaim's banner takes you to the right page. Each rebuild changes the app's signature, so after rebuilding you may need to switch Full Disk Access off and on again.
+1. Quit Reclaim, including its menu bar item (click it, then the power button).
+2. Drag **Reclaim** from Applications to the Trash.
+3. To remove its data too, delete `~/Library/Application Support/Reclaim` (the free-space history) and run `defaults delete local.reclaim.app` (its settings).
+4. In **System Settings → Privacy & Security → Full Disk Access**, select Reclaim and click **−**.
+
+Nothing Reclaim moved to the Trash is affected. It stays there until you empty it.
+
+### If something goes wrong
+
+| What you see | What to do |
+| --- | --- |
+| *"Reclaim" can't be opened because Apple cannot check it for malicious software* | Use the install command above, or follow **Open Anyway** in [Download the zip](#download-the-zip). |
+| Full Disk Access is on, but Reclaim still asks for it | Click **Restart Reclaim**. After an update, the list may hold the old copy: select Reclaim, click **−**, then add it again. |
+| *Reclaim can't replace itself* when updating | Reclaim was opened from Downloads or a folder it can't write to. Move it into Applications, open it from there, and update again, or run the install command. |
+| The install command says *Release builds are for Apple-silicon Macs* | Your Mac has an Intel processor. [Build from source](#build-from-source) instead. |
+| *curl: (6) Could not resolve host* | You're offline, or a firewall is blocking GitHub. Try again when you're connected. |
 
 ## Keyboard shortcuts
 

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var updater: Updater
 
     var body: some View {
         NavigationSplitView {
@@ -30,7 +31,14 @@ struct RootView: View {
         .sheet(item: $model.pending) { action in
             ConfirmSheet(action: action)
         }
-        .task { await Tour.run(model) }
+        .task { await Tour.run(model, updater: updater) }
+        .task { updater.start() }
+        .background {
+            Color.clear
+                .sheet(isPresented: $updater.showSheet) {
+                    UpdateSheet().environmentObject(updater)
+                }
+        }
         .background {
             // A second sheet needs its own anchor view.
             Color.clear
@@ -65,6 +73,7 @@ struct RootView: View {
 
 struct Sidebar: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var updater: Updater
     private var groups: [String] { ["Reclaim", "Discover", "Track"] }
 
     var body: some View {
@@ -81,7 +90,11 @@ struct Sidebar: View {
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            SidebarGauge()
+            VStack(spacing: 8) {
+                UpdatePill()
+                SidebarGauge()
+            }
+            .animation(.snappy, value: updater.available)
                 .padding(12)
         }
     }

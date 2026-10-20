@@ -5,17 +5,24 @@ import SwiftUI
 struct ReclaimApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject var model = AppModel()
+    @StateObject var updater = Updater()
     @AppStorage("showInMenuBar") var showInMenuBar = true
 
     var body: some Scene {
         Window("Reclaim", id: "main") {
             RootView()
                 .environmentObject(model)
+                .environmentObject(updater)
                 .frame(minWidth: 980, minHeight: 680)
         }
         .defaultSize(width: 1280, height: 880)
         .windowToolbarStyle(.unified)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    Task { await updater.check(userInitiated: true) }
+                }
+            }
             CommandGroup(after: .newItem) {
                 Button("Rescan") { model.rescan() }
                     .keyboardShortcut("r", modifiers: .command)
@@ -34,6 +41,7 @@ struct ReclaimApp: App {
         MenuBarExtra(isInserted: $showInMenuBar) {
             MenuBarPanel()
                 .environmentObject(model)
+                .environmentObject(updater)
         } label: {
             Text(model.menuBarTitle)
         }
@@ -42,6 +50,7 @@ struct ReclaimApp: App {
         Settings {
             SettingsView()
                 .environmentObject(model)
+                .environmentObject(updater)
         }
     }
 }
@@ -58,10 +67,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct MenuBarPanel: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var updater: Updater
     @Environment(\.openWindow) var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if let r = updater.available {
+                Button {
+                    openMain()
+                    updater.showSheet = true
+                } label: {
+                    Label("Update to Reclaim \(r.version)", systemImage: "arrow.down.circle.fill")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.bordered)
+                .tint(Palette.mint)
+            }
             if let d = model.disk {
                 let reclaim = model.reclaimableBytes
                 let trash = model.trashBytes
@@ -158,6 +179,8 @@ struct MenuBarPanel: View {
 
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var updater: Updater
+    @AppStorage("autoCheckUpdates") var autoCheckUpdates = true
     @Environment(\.openWindow) var openWindow
     @AppStorage("showInMenuBar") var showInMenuBar = true
     @AppStorage("lowSpaceAlerts") var lowSpaceAlerts = true
@@ -200,6 +223,23 @@ struct SettingsView: View {
                     Spacer()
                     Link("Latest Release", destination: AppVersion.releasesURL)
                 }
+                HStack(spacing: 10) {
+                    updateStatus
+                    Spacer()
+                    if updater.available != nil {
+                        Button("Install Update…") {
+                            openWindow(id: "main")
+                            NSApp.activate()
+                            updater.showSheet = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Palette.mint)
+                    } else {
+                        Button("Check Now") { Task { await updater.check(userInitiated: false) } }
+                            .disabled(updater.state == .checking)
+                    }
+                }
+                Toggle("Check for updates automatically", isOn: $autoCheckUpdates)
             }
             Section {
                 Toggle("Show free space in the menu bar", isOn: $showInMenuBar)
@@ -211,6 +251,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .animation(.snappy, value: updater.state)
         .frame(width: 470)
         .fixedSize()
     }
@@ -225,5 +266,32 @@ enum AppVersion {
 
     private static func info(_ key: String) -> String? {
         Bundle.main.object(forInfoDictionaryKey: key) as? String
+    }
+}
+
+extension SettingsView {
+    @ViewBuilder
+    var updateStatus: some View {
+        switch updater.state {
+        case .idle:
+            Text(updater.lastChecked == nil ? "Not checked yet" : "Checked \(Format.ago(updater.lastChecked))")
+                .foregroundStyle(.secondary)
+        case .checking:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Checking…").foregroundStyle(.secondary)
+            }
+        case .upToDate:
+            Label("Up to date", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(Palette.mint)
+        case .available(let r), .downloading(let r), .installing(let r):
+            Label("Reclaim \(r.version) is available", systemImage: "arrow.down.circle.fill")
+                .foregroundStyle(Palette.mint)
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(Palette.sand)
+                .font(.caption)
+                .lineLimit(3)
+        }
     }
 }
