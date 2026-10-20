@@ -6,8 +6,8 @@
 #
 # Why there's no warning: macOS only marks files downloaded by apps such as Safari or Chrome
 # for a security check. Files fetched by command-line tools aren't marked, so Reclaim opens
-# straight away. The repo is private, so the download goes through the GitHub CLI (`gh`),
-# which uses your GitHub sign-in.
+# straight away. Downloads use curl; if the repository is ever private, the GitHub CLI (`gh`)
+# and your GitHub sign-in are used instead.
 set -euo pipefail
 
 REPO="whatron/reclaim"
@@ -21,17 +21,23 @@ fail() { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
 if [ "$(uname -m)" != "arm64" ]; then
   fail "Release builds are for Apple-silicon Macs. On an Intel Mac, clone the repo and run ./build.sh --install."
 fi
-if ! command -v gh >/dev/null 2>&1; then
-  fail "This needs the GitHub CLI. Install it with:  brew install gh   then run:  gh auth login"
-fi
-gh auth status >/dev/null 2>&1 || fail "Sign in to GitHub first:  gh auth login"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 say "Downloading ${TAG:-the latest release}…"
-gh release download ${TAG:+"$TAG"} --repo "$REPO" --pattern 'Reclaim-*.zip' --dir "$work" \
-  || fail "Couldn't download ${TAG:-the latest release} from $REPO."
+api="https://api.github.com/repos/$REPO/releases/${TAG:+tags/$TAG}"
+[ -n "$TAG" ] || api="${api}latest"
+url="$(curl -fsSL "$api" 2>/dev/null | grep -o '"browser_download_url": *"[^"]*/Reclaim-[^"]*\.zip"' | head -1 | sed 's/.*"\(https[^"]*\)"$/\1/' || true)"
+if [ -n "$url" ]; then
+  curl -fL --progress-bar "$url" -o "$work/$(basename "$url")" || fail "The download didn't finish."
+elif command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  # Private repository: download with your GitHub sign-in.
+  gh release download ${TAG:+"$TAG"} --repo "$REPO" --pattern 'Reclaim-*.zip' --dir "$work" \
+    || fail "Couldn't download ${TAG:-the latest release} from $REPO."
+else
+  fail "Couldn't find ${TAG:-the latest release} of $REPO. If the repository is private, install the GitHub CLI (brew install gh) and run: gh auth login"
+fi
 zip="$(ls "$work"/Reclaim-*.zip | head -1)"
 ditto -x -k "$zip" "$work/unpacked"
 [ -d "$work/unpacked/Reclaim.app" ] || fail "The download didn't contain Reclaim.app."

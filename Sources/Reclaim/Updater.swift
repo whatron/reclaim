@@ -4,9 +4,10 @@ import SwiftUI
 
 /// Checks GitHub releases for a newer Reclaim and installs it in place.
 ///
-/// The repository is private, so an anonymous request to GitHub's API usually fails. Reclaim then
-/// asks the GitHub CLI (`gh`), which uses your GitHub sign-in. Updates downloaded this way aren't
-/// marked by macOS, so the new version opens without the "unsafe app" warning.
+/// It asks GitHub's API directly, which works while the repository is public. If that fails (for
+/// example, if the repository is made private), it falls back to the GitHub CLI (`gh`) and your
+/// sign-in. Either way, the download isn't marked by macOS, so the new version opens without the
+/// "unsafe app" warning.
 @MainActor
 final class Updater: ObservableObject {
     nonisolated static let repo = "whatron/reclaim"
@@ -134,7 +135,7 @@ final class Updater: ObservableObject {
         // 2. The GitHub CLI, signed in as you: works for the private repository.
         if data == nil {
             guard Shell.which("gh") != nil else {
-                throw UpdateError("Reclaim checks for updates through the GitHub CLI, because the repository is private. Install it with “brew install gh”, then run “gh auth login”.")
+                throw UpdateError("Couldn't reach GitHub's releases directly. To check through the GitHub CLI instead, Install it with “brew install gh”, then run “gh auth login”.")
             }
             let result = await background { Shell.run(["gh", "api", api], timeout: 30) }
             guard result.ok else {
@@ -356,7 +357,12 @@ struct UpdateSheet: View {
                 if !skipping { lines.append("**\(title)**") }
                 continue
             }
-            if !skipping { lines.append(raw) }
+            guard !skipping else { continue }
+            if line.hasPrefix("* ") || line.hasPrefix("- ") {
+                lines.append("•  " + line.dropFirst(2))
+            } else {
+                lines.append(raw)
+            }
         }
         let cleaned = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
