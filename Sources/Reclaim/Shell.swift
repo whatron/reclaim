@@ -198,10 +198,5 @@ enum Shell {
         return nil
     }
 
-    static func hasFullDiskAccess() -> Bool {
-        // ~/Library/Safari exists on every Mac and is only readable with Full Disk Access.
-        let probe = Paths.h("Library/Safari")
-        guard FileManager.default.fileExists(atPath: probe) else { return true }
-        return (try? FileManager.default.contentsOfDirectory(atPath: probe)) != nil
-    }
+    static func hasFullDiskAccess() -> Bool { Access.hasFullDiskAccess() }
 }
