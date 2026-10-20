@@ -191,7 +191,7 @@ enum Icons {
 
     static func icon(_ path: String) -> NSImage {
         if let image = cache.object(forKey: path as NSString) { return image }
-        let image = Icons.icon(path)
+        let image = NSWorkspace.shared.icon(forFile: path)
         cache.setObject(image, forKey: path as NSString)
         return image
     }
