@@ -44,9 +44,10 @@ enum Access {
     static func relaunch() {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
+        process.arguments = ["-c", "while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; /usr/bin/open \"$0\"",
+                             Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier)]
         try? process.run()
-        NSApp.terminate(nil)
+        AppQuit.now()
     }
 }
 

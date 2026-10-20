@@ -77,7 +77,8 @@ final class AppModel: ObservableObject {
         // Scanning before the choice would make macOS ask about each protected folder separately,
         // so wait until Full Disk Access is on or the person chooses limited access.
         let decided = UserDefaults.standard.bool(forKey: "accessChoiceMade")
-        if hasFullDiskAccess || decided || Tour.folder != nil {
+        let automated = Tour.folder != nil || ProcessInfo.processInfo.environment["RECLAIM_TEST_UPDATE"] != nil
+        if hasFullDiskAccess || decided || automated {
             startScans()
         } else {
             showAccessSheet = true

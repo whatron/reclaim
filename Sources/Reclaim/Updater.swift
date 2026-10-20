@@ -49,7 +49,8 @@ final class Updater: ObservableObject {
 
     /// Checks shortly after launch and then once a day, if automatic checks are on.
     func start() {
-        guard !started, Tour.folder == nil else { return }
+        guard !started, Tour.folder == nil,
+              ProcessInfo.processInfo.environment["RECLAIM_TEST_UPDATE"] == nil else { return }
         started = true
         Task {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
@@ -82,6 +83,19 @@ final class Updater: ObservableObject {
         } catch {
             state = .failed(error.localizedDescription)
         }
+    }
+
+    /// Build-check only (RECLAIM_TEST_UPDATE): installs the latest release over this copy with the
+    /// update sheet open, exactly as a person would, so the build can confirm the swap and relaunch.
+    func testInstallLatest() async {
+        guard let release = try? await fetchLatest() else {
+            state = .failed("Test: couldn't find the latest release.")
+            return
+        }
+        state = .available(release)
+        showSheet = true
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        await install(release)
     }
 
     /// Screenshot tour only: checks for real, then shows the latest release as if it were new.
@@ -204,12 +218,35 @@ final class Updater: ObservableObject {
                 throw UpdateError("The download didn't contain Reclaim.app.")
             }
 
-            // Swap the app once this copy has quit, then open the new one.
+            // Swap the app once this copy has quit, then open the new one. The old copy is kept
+            // until the new one is in place, and every step is logged.
             let script = """
-            while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
-            rm -rf "$2" && /usr/bin/ditto "$3" "$2" && /usr/bin/xattr -dr com.apple.quarantine "$2" 2>/dev/null
-            /usr/bin/open "$2"
-            rm -rf "$4"
+            log="$HOME/Library/Logs/Reclaim/update.log"
+            mkdir -p "$(dirname "$log")"
+            {
+              echo "$(date): installing $3 over $2; waiting for process $1 to quit"
+              i=0
+              while kill -0 "$1" 2>/dev/null && [ $i -lt 100 ]; do sleep 0.2; i=$((i + 1)); done
+              if kill -0 "$1" 2>/dev/null; then
+                echo "Still running after 20 seconds; stopping it."
+                kill -9 "$1"; sleep 0.5
+              fi
+              backup="$2.old-$$"
+              if mv "$2" "$backup"; then
+                if /usr/bin/ditto "$3" "$2"; then
+                  rm -rf "$backup"
+                  /usr/bin/xattr -dr com.apple.quarantine "$2" 2>/dev/null
+                  echo "Installed."
+                else
+                  echo "Copying the new version failed; putting the old one back."
+                  rm -rf "$2"; mv "$backup" "$2"
+                fi
+              else
+                echo "Couldn't move the old version aside; leaving it as it was."
+              fi
+              /usr/bin/open "$2"
+              rm -rf "$4"
+            } >> "$log" 2>&1
             """
             let swap = Process()
             swap.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -217,7 +254,8 @@ final class Updater: ObservableObject {
                               appPath, newApp, work.path]
             try swap.run()
             UserDefaults.standard.removeObject(forKey: "skippedUpdate")
-            NSApp.terminate(nil)
+            showSheet = false
+            AppQuit.now()
         } catch {
             try? FileManager.default.removeItem(at: work)
             state = .failed(error.localizedDescription)
@@ -396,5 +434,19 @@ struct UpdatePill: View {
             .buttonStyle(.plain)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+}
+
+/// Quitting reliably. AppKit refuses to quit while a sheet is open on a window, which left the
+/// update stuck on "Reclaim will quit and reopen", so sheets are closed first, and the app exits
+/// anyway if something still holds it open.
+@MainActor
+enum AppQuit {
+    static func now() {
+        for window in NSApp.windows {
+            if let sheet = window.attachedSheet { window.endSheet(sheet) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { NSApp.terminate(nil) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exit(0) }
     }
 }
