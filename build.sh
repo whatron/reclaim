@@ -32,14 +32,16 @@ COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 /usr/libexec/PlistBuddy -c "Add :ReclaimCommit string $COMMIT" "$APP/Contents/Info.plist"
 echo "Version $VERSION ($COMMIT)"
 
-echo "Drawing the icon…"
-rm -rf build/AppIcon.iconset
-if swift Scripts/make_icon.swift build/AppIcon.iconset >/dev/null 2>&1 \
-   && iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"; then
-  :
-else
-  echo "(Skipped the icon; the app works without it.)"
-fi
+# Icon: every size macOS needs, made from the 1024 px master (Support/AppIcon.png, drawn by
+# Scripts/make_icon.py and rendered by Scripts/render_icon.py).
+echo "Making the icon…"
+ICONSET=build/AppIcon.iconset
+rm -rf "$ICONSET" && mkdir -p "$ICONSET"
+for size in 16 32 128 256 512; do
+  sips -z "$size" "$size" Support/AppIcon.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+  sips -z "$((size * 2))" "$((size * 2))" Support/AppIcon.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc signature so macOS will launch it. Built locally, so Gatekeeper doesn't quarantine it.
 codesign --force --sign - "$APP" >/dev/null

@@ -1,3 +1,5 @@
+<p align="center"><img src="Support/AppIcon.png" width="160" alt="Reclaim's icon: a ring chart of your disk with a mint slice lifting out"></p>
+
 # Reclaim
 
 [![Build](https://github.com/whatron/reclaim/actions/workflows/build.yml/badge.svg)](https://github.com/whatron/reclaim/actions/workflows/build.yml)
@@ -313,6 +315,7 @@ To work on the code in Xcode, open `Package.swift`.
 | `Theme.swift`, `TideGauge.swift` | Colours, surfaces and the animated vessel |
 | `*View.swift`, `SpaceMap.swift` | One file per page; the rings and blocks charts |
 | `Tour.swift`, `Scripts/` | The automated screenshot tour used by the build check |
+| `Support/AppIcon.svg`, `Scripts/make_icon.py` | The app icon. Edit the script, then run `python3 Scripts/make_icon.py && python3 Scripts/render_icon.py` to redraw `Support/AppIcon.png` |
 
 ### Build check
 
