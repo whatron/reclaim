@@ -196,13 +196,25 @@ Recommendations are ranked by the space they'd free. Warnings, such as a forecas
 
 You need **macOS 14 Sonoma or later**.
 
+### Install with one command (recommended)
+
+This installs or updates to the latest release, without macOS's "unsafe app" warning. It needs the [GitHub CLI](https://cli.github.com) signed in to your account (`brew install gh`, then `gh auth login`):
+
+```bash
+gh api -H "Accept: application/vnd.github.raw" repos/whatron/reclaim/contents/install.sh | bash
+```
+
+If you've cloned the repo, `./install.sh` does the same. To install a particular release, add its tag, for example `./install.sh v0.1.0`. The script quits Reclaim if it's running, replaces the copy in Applications, tells you which version you went from and to, and opens it.
+
+There's no warning because macOS only flags apps downloaded through a browser for its security check. Files fetched from the command line aren't flagged.
+
 ### Download a build
 
 **[Download the latest release →](https://github.com/whatron/reclaim/releases/latest)**
 
 Each release, such as **Reclaim 0.1.0**, has **Reclaim-0.1.0.zip** attached under *Assets*. It's for Apple-silicon Macs; on an Intel Mac, build from source. Unzip it and drag **Reclaim** to Applications. To see which version you have, open Reclaim's Settings (⌘,).
 
-The download isn't notarized, so the first time you open it, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+The download isn't notarized, so the first time you open it, macOS says it can't check it for malicious software. Go to **System Settings → Privacy & Security** and click **Open Anyway**, or skip that by using the install command above.
 
 ### Build from source
 
