@@ -1,4 +1,4 @@
-<p align="center"><img src="Support/AppIcon.png" width="160" alt="Reclaim's icon: deep-blue water with a glowing mint crest and bubbles rising"></p>
+<p align="center"><img src="Support/AppIcon.png" width="160" alt="Reclaim's icon: a ring chart of your disk with a mint slice lifting out"></p>
 
 # Reclaim
 

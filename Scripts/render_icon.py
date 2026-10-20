@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Renders Support/AppIcon.svg to Support/AppIcon.png (1024x1024, transparent) with headless Chromium.
+"""Renders Support/AppIcon.svg to Support/AppIcon.png (1024 x 1024, transparent) with headless Chromium.
 Needs Playwright: pip install playwright && playwright install chromium."""
 import asyncio, pathlib, sys
 from playwright.async_api import async_playwright
