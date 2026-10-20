@@ -28,15 +28,27 @@ jobs:
         with:
           fetch-depth: 0  # the version number counts commits
 
-      # 1.1.<commits> on main; other branches add their name, e.g. 1.1.30-faster-map.
+      # VERSION holds the release number, e.g. 0.1.0. The first build of it on main becomes
+      # that release. Every other build gets a label: 0.1.0-build.31 on main,
+      # 0.1.0-build.31.my-branch elsewhere.
       - name: Work out the version
         run: |
-          version="$(cat VERSION).$(git rev-list --count HEAD)"
-          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            version="$version-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9' '-')"
+          base="$(cat VERSION)"
+          count="$(git rev-list --count HEAD)"
+          release=false
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            if git ls-remote --exit-code --tags origin "refs/tags/v$base" >/dev/null 2>&1; then
+              version="$base-build.$count"
+            else
+              version="$base"
+              release=true
+            fi
+          else
+            version="$base-build.$count.$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9' '-')"
           fi
           echo "RECLAIM_VERSION=$version" >> "$GITHUB_ENV"
-          echo "Version $version"
+          echo "RECLAIM_RELEASE=$release" >> "$GITHUB_ENV"
+          echo "Version $version (release: $release)"
 
       - name: Show toolchain
         run: |
@@ -88,10 +100,10 @@ jobs:
           path: build/Reclaim-${{ env.RECLAIM_VERSION }}.zip
           retention-days: 14
 
-      # Every merge to main becomes a release with the app attached: one place to find
-      # the latest version, kept for good (artifacts expire after 14 days).
+      # A new number in VERSION, merged to main, becomes a release with the app attached.
+      # Releases are kept for good; build artifacts expire after 14 days.
       - name: Publish a release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.RECLAIM_RELEASE == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -127,7 +139,7 @@ jobs:
             echo "| Commit | [\`${GITHUB_SHA::7}\`]($repo/commit/$GITHUB_SHA) on \`$GITHUB_REF_NAME\` |"
             echo "| Built with | $(xcodebuild -version | head -1) on $(sw_vers -productName) $(sw_vers -productVersion) |"
             if [ -f "build/Reclaim-$RECLAIM_VERSION.zip" ]; then
-              if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+              if [ "$RECLAIM_RELEASE" = "true" ]; then
                 echo "| Download | [Reclaim-$RECLAIM_VERSION.zip on the release page]($repo/releases/tag/v$RECLAIM_VERSION) |"
               else
                 echo "| Download | **Reclaim-$RECLAIM_VERSION** under *Artifacts* at the bottom of this page (kept 14 days) |"

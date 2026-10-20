@@ -200,7 +200,7 @@ You need **macOS 14 Sonoma or later**.
 
 **[Download the latest release →](https://github.com/whatron/reclaim/releases/latest)**
 
-Every merge to `main` publishes a release named after its version, such as **Reclaim 1.1.25**, with **Reclaim-1.1.25.zip** attached under *Assets*. It's for Apple-silicon Macs; on an Intel Mac, build from source. Unzip it and drag **Reclaim** to Applications. To see which version you have, open Reclaim's Settings (⌘,).
+Each release, such as **Reclaim 0.1.0**, has **Reclaim-0.1.0.zip** attached under *Assets*. It's for Apple-silicon Macs; on an Intel Mac, build from source. Unzip it and drag **Reclaim** to Applications. To see which version you have, open Reclaim's Settings (⌘,).
 
 The download isn't notarized, so the first time you open it, go to **System Settings → Privacy & Security** and click **Open Anyway**.
 
@@ -252,7 +252,7 @@ To work on the code in Xcode, open `Package.swift`.
 
 `.github/workflows/build.yml` compiles the app on GitHub's macOS 26 runner on every push and publishes compiler errors and warnings as a **Compiler messages** check. Each run's page starts with a summary of the version and where to download it.
 
-**Versions** are the major and minor version in `VERSION`, followed by the number of commits, for example `1.1.25`. Builds from other branches add the branch name, for example `1.1.26-faster-map`, and attach a **Reclaim-<version>** zip to the run for 14 days. Every merge to `main` publishes a GitHub release, `v1.1.25`, with the zip attached. To start a new minor version, edit `VERSION`. Two words in a commit message switch on extras:
+**Versions** come from the `VERSION` file, for example `0.1.0`. To make a release, change `VERSION` (say, to `0.1.1`) and merge to `main`: that build publishes a GitHub release, `v0.1.1`, with the zip attached. Other builds are labelled with the commit count, such as `0.1.0-build.31` on `main` or `0.1.0-build.31.my-branch` elsewhere, and attach their zip to the run for 14 days. Two words in a commit message switch on extras:
 
 - `[screenshots]` sets up a few demo code projects, photographs every page in dark and light mode, and pushes the pictures to the `screenshots` branch.
 - `[app]` pushes the built `Reclaim.zip` to the `app-build` branch.
