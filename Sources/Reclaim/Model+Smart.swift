@@ -200,7 +200,7 @@ extension AppModel {
             out.append(Insight(id: "fda", symbol: "lock.shield", tint: Palette.sand,
                                headline: "Some folders are hidden from Reclaim",
                                detail: "Turn on Full Disk Access for exact numbers in Library and the Trash.",
-                               bytes: nil, actionTitle: "Open Settings", action: .fullDiskAccess,
+                               bytes: nil, actionTitle: "Set Up Access", action: .fullDiskAccess,
                                priority: 1_500_000_000))
         }
         return out.sorted { $0.priority > $1.priority }
@@ -213,7 +213,7 @@ extension AppModel {
             if let t = targets.first(where: { $0.id == id }) { requestRun(t) }
         case .explore(let path): openInMap(path)
         case .quickClean: requestBatchClean(only: Set(recommendedTargets.map { $0.id }))
-        case .fullDiskAccess: openFullDiskAccessSettings()
+        case .fullDiskAccess: showAccessSheet = true
         }
     }
 

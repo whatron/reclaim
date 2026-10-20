@@ -8,6 +8,9 @@ final class AppModel: ObservableObject {
     @Published var section: AppSection? = .overview
     @Published var disk: DiskInfo?
     @Published var hasFullDiskAccess = true
+    /// The welcome sheet that asks for Full Disk Access.
+    @Published var showAccessSheet = false
+    var scansStarted = false
 
     // Smart Clean
     @Published var targets: [TargetDef] = []
@@ -71,13 +74,56 @@ final class AppModel: ObservableObject {
         refreshTargets()
         refreshDisk()
         hasFullDiskAccess = Shell.hasFullDiskAccess()
-        measureAll()
-        scanHome()
+        // Scanning before the choice would make macOS ask about each protected folder separately,
+        // so wait until Full Disk Access is on or the person chooses limited access.
+        let decided = UserDefaults.standard.bool(forKey: "accessChoiceMade")
+        if hasFullDiskAccess || decided || Tour.folder != nil {
+            startScans()
+        } else {
+            showAccessSheet = true
+        }
         Task {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
                 self.refreshDisk()
             }
+        }
+    }
+
+    // MARK: Access
+
+    func startScans() {
+        guard !scansStarted else { return }
+        scansStarted = true
+        measureAll()
+        scanHome()
+    }
+
+    func continueWithLimitedAccess() {
+        UserDefaults.standard.set(true, forKey: "accessChoiceMade")
+        showAccessSheet = false
+        startScans()
+    }
+
+    func fullDiskAccessGranted() {
+        UserDefaults.standard.set(true, forKey: "accessChoiceMade")
+        hasFullDiskAccess = true
+        showAccessSheet = false
+        if scansStarted {
+            rescan()
+        } else {
+            startScans()
+        }
+        flash("Full Disk Access is on. Reclaim can see everything now.")
+    }
+
+    /// Picks up a change made in System Settings while Reclaim was in the background.
+    func recheckAccess() {
+        let now = Shell.hasFullDiskAccess()
+        if now && !hasFullDiskAccess && !showAccessSheet {
+            fullDiskAccessGranted()
+        } else if now != hasFullDiskAccess {
+            hasFullDiskAccess = now
         }
     }
 

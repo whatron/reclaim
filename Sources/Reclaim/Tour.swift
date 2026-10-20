@@ -53,12 +53,14 @@ enum Tour {
             ("dark-projects", .projects, true), ("dark-files", .files, true),
             ("dark-duplicates", .duplicates, true), ("dark-apps", .apps, true), ("dark-history", .history, true),
             ("dark-blocks", .map, true),
+            ("dark-access", .overview, true), ("light-access", .overview, false),
             ("light-overview", .overview, false), ("light-clean", .clean, false), ("light-map", .map, false),
             ("light-projects", .projects, false), ("light-files", .files, false), ("light-apps", .apps, false),
         ]
         for page in pages {
             NSApp.appearance = NSAppearance(named: page.dark ? .darkAqua : .aqua)
             model.section = page.section
+            model.showAccessSheet = page.name.hasSuffix("access")
             if page.section == .map {
                 model.mapStyle = page.name.hasSuffix("blocks") ? .blocks : .rings
                 model.explore(Paths.home)
