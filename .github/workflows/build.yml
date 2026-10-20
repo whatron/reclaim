@@ -108,12 +108,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<'NOTES'
-          ### Install
-          1. Download **Reclaim-VERSION.zip** below and double-click it.
-          2. Drag **Reclaim** into Applications, replacing any older copy.
-          3. First time only: open it, then go to **System Settings → Privacy & Security** and click **Open Anyway** (the app isn't notarized).
+          ### Install or update
+          Already have Reclaim 0.2.0 or later? Click **Update available** in the sidebar, or choose **Reclaim → Check for Updates…**.
 
-          For Apple-silicon Macs. On an Intel Mac, build from source with `./build.sh --install`.
+          Otherwise, paste this into Terminal. It installs this version without the "unsafe app" warning:
+
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/whatron/reclaim/main/install.sh | bash
+          ```
+
+          Prefer to download it yourself? Get **Reclaim-VERSION.zip** below, unzip it and drag **Reclaim** into Applications. The first time you open it, go to **System Settings → Privacy & Security** and click **Open Anyway**, because the app isn't notarized.
+
+          For Apple-silicon Macs on macOS 14 or later. On an Intel Mac, build from source with `./build.sh --install`.
           NOTES
           sed -i '' "s/VERSION/$RECLAIM_VERSION/" notes.md
           gh release create "v$RECLAIM_VERSION" "build/Reclaim-$RECLAIM_VERSION.zip" \
