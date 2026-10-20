@@ -31,6 +31,16 @@ struct RootView: View {
             ConfirmSheet(action: action)
         }
         .task { await Tour.run(model) }
+        .background {
+            // A second sheet needs its own anchor view.
+            Color.clear
+                .sheet(isPresented: $model.showAccessSheet) {
+                    AccessSheet().environmentObject(model)
+                }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.recheckAccess()
+        }
         .overlay(alignment: .top) { BatchBanner() }
         .overlay(alignment: .bottom) { ToastOverlay() }
         .overlay { CelebrationOverlay() }
