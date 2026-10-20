@@ -86,7 +86,7 @@ enum Shell {
         return DiskInfo(total: Int64(total), free: free)
     }
 
-    private static func isLimited(_ stderr: String) -> Bool {
+    static func isLimited(_ stderr: String) -> Bool {
         stderr.contains("denied") || stderr.contains("not permitted")
     }
 
@@ -109,55 +109,8 @@ enum Shell {
         return box.current
     }
 
-    /// Sizes of a folder's children and grandchildren (two rings of the space map).
-    /// macOS `du` can't combine -a with -d, so folders come from `du -d` and files from the file system.
-    static func scanFolder(_ path: String, depth: Int = 2) -> FolderScan {
-        let base = path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
-        let prefix = base + "/"
-        let result = run(["/usr/bin/du", "-k", "-d", String(depth), "-x", base], timeout: 1800)
-        var total: Int64 = 0
-        var level1: [String: DiskNode] = [:]
-        var level2: [String: [DiskNode]] = [:]
-
-        for line in result.stdout.split(separator: "\n") {
-            guard let tab = line.firstIndex(of: "\t"),
-                  let kb = Int64(line[line.startIndex..<tab]) else { continue }
-            let p = String(line[line.index(after: tab)...])
-            let size = kb * 1024
-            if p == base {
-                total = size
-                continue
-            }
-            guard p.hasPrefix(prefix) else { continue }
-            let parts = p.dropFirst(prefix.count).split(separator: "/")
-            let node = DiskNode(name: Paths.name(p), path: p, size: size, isDir: true,
-                                isProtected: !Safety.canTrash(p))
-            if parts.count == 1 {
-                level1[p] = node
-            } else if parts.count == 2 {
-                level2[prefix + String(parts[0]), default: []].append(node)
-            }
-        }
-
-        // Plain files (and symlinks) next to those folders.
-        for file in looseFiles(in: base) { level1[file.path] = file }
-        for dir in Array(level1.keys) where level1[dir]?.isDir == true {
-            level2[dir, default: []] += looseFiles(in: dir)
-        }
-
-        var kids: [DiskNode] = level1.values.map { node in
-            var copy = node
-            copy.children = (level2[node.path] ?? []).sorted { $0.size > $1.size }
-            return copy
-        }
-        kids.sort { $0.size > $1.size }
-        let childTotal = kids.reduce(0) { $0 + $1.size }
-        if total < childTotal { total = childTotal }
-        return FolderScan(path: base, size: total, children: kids, limited: isLimited(result.stderr))
-    }
-
     /// Files directly inside a folder, sized by the space they take on disk.
-    private static func looseFiles(in dir: String) -> [DiskNode] {
+    static func looseFiles(in dir: String) -> [DiskNode] {
         let keys: [URLResourceKey] = [.isDirectoryKey, .isSymbolicLinkKey, .totalFileAllocatedSizeKey,
                                       .fileAllocatedSizeKey, .fileSizeKey]
         guard let urls = try? FileManager.default.contentsOfDirectory(

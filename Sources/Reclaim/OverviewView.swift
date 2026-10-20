@@ -282,7 +282,7 @@ struct BreakdownRow: View {
             if node.isDir { model.openInMap(node.path) } else { model.reveal(node.path) }
         } label: {
             HStack(spacing: 14) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: node.path))
+                Image(nsImage: Icons.icon(node.path))
                     .resizable()
                     .frame(width: 30, height: 30)
                 VStack(alignment: .leading, spacing: 5) {
@@ -325,10 +325,11 @@ struct MiniSunburst: View {
     let scan: FolderScan
     @State var progress: Double = 0
     @State var hovering = false
+    @State var segments: [RingSegment] = []
 
     var body: some View {
         ZStack {
-            SunburstCanvas(progress: progress, segments: Sunburst.segments(for: scan), hovered: nil, selected: nil,
+            SunburstCanvas(progress: progress, segments: segments, hovered: nil, selected: nil,
                            reclaimPaths: model.reclaimPaths)
             VStack(spacing: 1) {
                 Text("Home").font(.headline)
@@ -346,6 +347,9 @@ struct MiniSunburst: View {
         .onHover { hovering = $0 }
         .onTapGesture { model.openInMap(Paths.home) }
         .help("Open the Space Map")
+        .onChange(of: scan, initial: true) { _, newScan in
+            segments = Sunburst.segments(for: newScan)
+        }
         .onAppear {
             withAnimation(.spring(duration: 1.1, bounce: 0.1)) { progress = 1 }
         }

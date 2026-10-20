@@ -74,6 +74,32 @@ jobs:
         if: contains(github.event.head_commit.message, '[screenshots]')
         run: ./Scripts/screenshot_tour.sh shots
 
+      - name: Report the tour
+        if: always() && contains(github.event.head_commit.message, '[screenshots]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## Screenshots"; ls -la shots 2>&1 || true
+            echo "## Timings"; cat build/tour/timings.txt 2>&1 || true
+            echo; echo "## The old way: measuring a folder each time it opens"
+            for d in "$HOME" "$HOME/Library" "$HOME/hostedtoolcache"; do
+              s=$(python3 -c "import time;print(time.time())")
+              /usr/bin/du -k -d 2 -x "$d" > /dev/null 2>&1
+              e=$(python3 -c 'import time;print(time.time())')
+              python3 -c "print('du -d 2 ${d/$HOME/~}: %.2f s' % ($e - $s))"
+            done
+            echo; echo "## Tour folder"; ls -la build/tour 2>&1 || true; cat build/tour/now 2>&1 || true
+            echo; echo "## Crash reports"
+            for f in $(ls -t ~/Library/Logs/DiagnosticReports/Reclaim* 2>/dev/null | head -2); do
+              echo "### $f"; head -c 12000 "$f"; echo
+            done
+          } > tour.txt
+          head -c 60000 tour.txt > tour-short.txt
+          gh api "repos/${{ github.repository }}/check-runs" -f name="Screenshot tour" \
+            -f head_sha="${{ github.sha }}" -f status=completed -f conclusion=neutral \
+            -f "output[title]=Tour report" -f "output[summary]=See text" -F "output[text]=@tour-short.txt" > /dev/null || true
+
       - name: Publish screenshots
         if: contains(github.event.head_commit.message, '[screenshots]')
         run: |
@@ -84,3 +110,15 @@ jobs:
           git add .
           git commit -q -m "Screenshots of ${GITHUB_SHA::7}"
           git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" screenshots
+
+      # Commit messages containing [app] also push the built app to the `app-build` branch.
+      - name: Publish the app
+        if: contains(github.event.head_commit.message, '[app]')
+        run: |
+          mkdir -p out && cp build/Reclaim.zip out/
+          cd out
+          git init -q -b app-build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add . && git commit -q -m "Reclaim.app built from ${GITHUB_SHA::7}"
+          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" app-build

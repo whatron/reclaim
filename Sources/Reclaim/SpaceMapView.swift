@@ -20,6 +20,7 @@ struct SpaceMapView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
+        .environmentObject(model.mapHover)
         .navigationTitle("Space Map")
         .task { model.startExploringIfNeeded() }
     }
@@ -28,12 +29,22 @@ struct SpaceMapView: View {
     private var chart: some View {
         if model.scanning {
             VStack(spacing: 12) {
-                ProgressView()
-                    .controlSize(.large)
-                Text("Measuring \(Paths.tilde(model.explorePath))")
-                    .font(.headline)
-                Text("Big folders like Library can take a minute.")
-                    .foregroundStyle(.secondary)
+                if model.homeWalk != nil && !DiskIndex.shared.canShow(Paths.home) && model.mapTotal > 0 {
+                    ProgressView(value: Double(model.mapDone), total: Double(model.mapTotal))
+                        .tint(Palette.sky)
+                        .frame(width: 260)
+                    Text("Measuring your home folder")
+                        .font(.headline)
+                    Text("\(model.mapDone) of \(model.mapTotal) folders done. After this, every folder opens instantly.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ProgressView()
+                        .controlSize(.large)
+                    Text("Measuring \(Paths.tilde(model.explorePath))")
+                        .font(.headline)
+                    Text("Big folders can take a moment.")
+                        .foregroundStyle(.secondary)
+                }
             }
         } else if let error = model.scanError {
             ContentUnavailableView {
@@ -116,11 +127,12 @@ struct MapHeader: View {
 
 struct MapInspector: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var hover: MapHover
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let node = model.selection ?? model.hovered {
+                if let node = model.selection ?? hover.node {
                     NodeDetail(node: node, isSelected: model.selection?.path == node.path)
                         .id(node.path)
                 } else if let scan = model.scan {
@@ -179,7 +191,7 @@ struct NodeDetail: View {
         }
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: node.path))
+                Image(nsImage: Icons.icon(node.path))
                     .resizable()
                     .frame(width: 44, height: 44)
                 VStack(alignment: .leading, spacing: 2) {

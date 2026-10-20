@@ -163,40 +163,48 @@ struct SunburstCanvas: View, Animatable {
     }
 }
 
+/// What the pointer is over on the map. Kept apart from the app model so hovering only redraws
+/// the rings, the centre label and the inspector, not the whole window.
+@MainActor
+final class MapHover: ObservableObject {
+    @Published var node: DiskNode?
+
+    func set(_ new: DiskNode?) {
+        if new?.path != node?.path { node = new }
+    }
+}
+
 struct SunburstView: View {
     @EnvironmentObject var model: AppModel
     let scan: FolderScan
     @State var progress: Double = 0
+    @State var segments: [RingSegment] = []
 
     var body: some View {
-        let segments = Sunburst.segments(for: scan)
         GeometryReader { geo in
             let side = min(geo.size.width, geo.size.height)
+            let area = CGSize(width: side, height: side)
+            let hover = model.mapHover
             ZStack {
-                SunburstCanvas(progress: progress, segments: segments, hovered: model.hovered?.path,
-                               selected: model.selection?.path, reclaimPaths: model.reclaimPaths)
+                SunburstLayer(progress: progress, segments: segments, selected: model.selection?.path,
+                              reclaimPaths: model.reclaimPaths)
                     .frame(width: side, height: side)
                     .contentShape(Circle())
                     .onContinuousHover { phase in
                         switch phase {
                         case .active(let location):
-                            let hit = Sunburst.hit(location, in: CGSize(width: side, height: side), segments: segments)
-                            if hit?.node.path != model.hovered?.path {
-                                model.hovered = hit?.node
-                            }
+                            hover.set(Sunburst.hit(location, in: area, segments: segments)?.node)
                         case .ended:
-                            model.hovered = nil
+                            hover.set(nil)
                         }
                     }
                     .onTapGesture(count: 2) { location in
-                        let area = CGSize(width: side, height: side)
                         if let seg = Sunburst.hit(location, in: area, segments: segments),
                            seg.node.isDir, !seg.node.isGroup {
                             model.explore(seg.node.path)
                         }
                     }
                     .onTapGesture { location in
-                        let area = CGSize(width: side, height: side)
                         if let seg = Sunburst.hit(location, in: area, segments: segments) {
                             if !seg.node.isGroup { model.select(seg.node) }
                         } else if Sunburst.isInHole(location, in: area) {
@@ -212,6 +220,9 @@ struct SunburstView: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
+        .onChange(of: scan, initial: true) { _, newScan in
+            segments = Sunburst.segments(for: newScan)
+        }
         .onAppear {
             progress = 0
             withAnimation(.spring(duration: 0.9, bounce: 0.12)) { progress = 1 }
@@ -219,12 +230,27 @@ struct SunburstView: View {
     }
 }
 
+/// The only part of the rings that redraws when the pointer moves.
+struct SunburstLayer: View {
+    @EnvironmentObject var hover: MapHover
+    let progress: Double
+    let segments: [RingSegment]
+    let selected: String?
+    let reclaimPaths: [String]
+
+    var body: some View {
+        SunburstCanvas(progress: progress, segments: segments, hovered: hover.node?.path,
+                       selected: selected, reclaimPaths: reclaimPaths)
+    }
+}
+
 struct CenterLabel: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var hover: MapHover
     let scan: FolderScan
 
     var body: some View {
-        let node = model.hovered ?? model.selection
+        let node = hover.node ?? model.selection
         VStack(spacing: 3) {
             if let node {
                 Text(Knowledge.explain(node.path)?.title ?? node.name)
@@ -395,7 +421,7 @@ struct TreemapTile: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         if isBig && !node.isGroup {
-                            Image(nsImage: NSWorkspace.shared.icon(forFile: node.path))
+                            Image(nsImage: Icons.icon(node.path))
                                 .resizable()
                                 .frame(width: 18, height: 18)
                         }
@@ -422,7 +448,9 @@ struct TreemapTile: View {
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .onHover { inside in
             hovering = inside
-            if !node.isGroup { model.hovered = inside ? node : nil }
+            if !node.isGroup {
+                if inside { model.mapHover.set(node) } else if model.mapHover.node?.path == node.path { model.mapHover.set(nil) }
+            }
         }
         .onTapGesture(count: 2) {
             if node.isDir && !node.isGroup { model.explore(node.path) }

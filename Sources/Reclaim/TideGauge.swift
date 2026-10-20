@@ -59,7 +59,7 @@ struct TideGauge: View {
             let levelAll = levelReclaim + fraction(trash)
             let amp = max(2.5, size.height * 0.018)
 
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion || !animated)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: reduceMotion || !animated)) { timeline in
                 let t = (reduceMotion || !animated) ? 0 : timeline.date.timeIntervalSinceReferenceDate
 
                 ZStack {

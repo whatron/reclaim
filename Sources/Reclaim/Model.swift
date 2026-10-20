@@ -47,7 +47,10 @@ final class AppModel: ObservableObject {
     @Published var scanning = false
     @Published var scanError: String?
     @Published var selection: DiskNode?
-    @Published var hovered: DiskNode?
+    /// Hover lives in its own object so moving the mouse over the map only redraws the map.
+    let mapHover = MapHover()
+    @Published var mapDone = 0
+    @Published var mapTotal = 0
     @Published var mapStyle: MapStyle = .rings
 
     // Tracking
@@ -55,7 +58,7 @@ final class AppModel: ObservableObject {
     @Published var lifetimeFreed: Int64 = 0
 
     let computerName: String
-    var scanCache: [String: FolderScan] = [:]
+    var homeWalk: Task<Void, Never>?
     var lastSnapshotAt = Date.distantPast
     var lastLowSpaceAlert = Date.distantPast
     var didApplyDefaultChecks = false
@@ -84,8 +87,11 @@ final class AppModel: ObservableObject {
         targets = Targets.all.filter { !$0.existingPaths.isEmpty || $0.always }
     }
 
-    func refreshDisk() {
-        if let d = Shell.disk(), d != disk {
+    /// Updates free space. The timer only publishes changes of 50 MB or more, so the window
+    /// isn't redrawn every few seconds for a few kilobytes.
+    func refreshDisk(force: Bool = false) {
+        if let d = Shell.disk(), d != disk,
+           force || disk == nil || abs(d.free - (disk?.free ?? 0)) >= 50_000_000 || d.total != disk?.total {
             disk = d
             checkLowSpace()
         }
@@ -130,9 +136,10 @@ final class AppModel: ObservableObject {
     }
 
     func rescan() {
-        scanCache.removeAll()
+        DiskIndex.shared.reset()
+        homeWalk = nil
         refreshTargets()
-        refreshDisk()
+        refreshDisk(force: true)
         hasFullDiskAccess = Shell.hasFullDiskAccess()
         measureAll()
         ollamaModels = nil
@@ -140,25 +147,57 @@ final class AppModel: ObservableObject {
         appsState = .idle
         if section == .files { loadLarge() }
         if section == .apps { loadApps() }
-        if scan != nil || scanning { explore(explorePath, force: true) } else { scanHome() }
+        scanHome()
+        if scan != nil || scanning { explore(explorePath) }
         addLog("Started a fresh scan.", ok: true)
         flash("Scanning again.")
     }
 
     // MARK: Space map
 
+    /// Measures the home folder once, five levels deep, in parallel. Everything on the map reads from that.
     func scanHome() {
-        if let cached = scanCache[Paths.home] {
-            homeScan = cached
-            return
-        }
-        Task {
-            let result = await background { Shell.scanFolder(Paths.home) }
-            self.scanCache[Paths.home] = result
-            self.homeScan = result
-            if self.explorePath == Paths.home && self.scan == nil && !self.scanning {
-                self.scan = result
+        guard homeWalk == nil else { return }
+        homeWalk = Task {
+            await background {
+                DiskIndex.shared.walk(Paths.home, depth: 5) { done, total in
+                    Task { @MainActor in
+                        self.mapDone = done
+                        self.mapTotal = total
+                    }
+                }
             }
+            await self.reloadMap()
+        }
+    }
+
+    /// Rebuilds the Overview breakdown and the current map folder from the index.
+    func reloadMap() async {
+        let path = explorePath
+        let result = await background { () -> (home: FolderScan?, current: FolderScan?) in
+            let home = DiskIndex.shared.scan(Paths.home)
+            return (home, path == Paths.home ? home : DiskIndex.shared.scan(path))
+        }
+        if let home = result.home { homeScan = home }
+        guard explorePath == path, let current = result.current else { return }
+        withAnimation(.snappy) {
+            scan = current
+            scanning = false
+            if let sel = selection, !current.children.contains(where: { $0.path == sel.path }) {
+                selection = nil
+            }
+        }
+    }
+
+    /// Patches the index after something changed on disk, then redraws the map.
+    /// `trashed` items are removed; `changed` folders are re-measured.
+    func updateMap(changed: [String], trashed: [TrashItem] = []) {
+        Task {
+            await background {
+                for item in trashed { DiskIndex.shared.forget(item.path, bytes: item.size) }
+                for path in changed { DiskIndex.shared.refresh(path) }
+            }
+            await self.reloadMap()
         }
     }
 
@@ -193,9 +232,9 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func explore(_ path: String, force: Bool = false) {
+    func explore(_ path: String) {
         if path != explorePath { selection = nil }
-        hovered = nil
+        mapHover.node = nil
         explorePath = path
         scanError = nil
         guard Safety.isInsideHome(path) else {
@@ -207,19 +246,22 @@ final class AppModel: ObservableObject {
             scanError = "\(Paths.tilde(path)) isn't a folder any more."
             return
         }
-        if !force, let cached = scanCache[path] {
-            withAnimation(.snappy) {
-                scan = cached
-                scanning = false
-            }
-            return
-        }
-        scanning = true
+        if !DiskIndex.shared.canShow(path) { scanning = true }
         Task {
-            let result = await background { Shell.scanFolder(path) }
-            self.scanCache[path] = result
-            if path == Paths.home { self.homeScan = result }
+            // The first walk of the home folder covers almost everything; wait for it rather than measuring twice.
+            await self.homeWalk?.value
             guard self.explorePath == path else { return }
+            var result = await background { DiskIndex.shared.scan(path) }
+            if result == nil {
+                // Deeper than the first walk reached: measure this folder now.
+                self.scanning = true
+                result = await background { () -> FolderScan? in
+                    DiskIndex.shared.refresh(path, atLeast: 3)
+                    return DiskIndex.shared.scan(path)
+                }
+            }
+            guard self.explorePath == path, let result else { return }
+            if path == Paths.home { self.homeScan = result }
             withAnimation(.snappy) {
                 self.scan = result
                 self.scanning = false
